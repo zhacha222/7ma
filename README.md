@@ -142,7 +142,7 @@ http://localhost:4321
 </details>
 
 
-# 7ma出行 API 文档
+# API 文档
 <details>
   <summary>获取首页</summary>
 
