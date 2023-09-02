@@ -15,7 +15,7 @@ https://www.icloud.com/shortcuts/528ae1ae4f8e4b60a1b15859f2c167eb
 ```
 
 # web部署
-## 方式一、docker一键部署
+## 方式一、docker运行
 ### 1.创建映射日志目录
 ```
 mkdir /root/7ma
@@ -27,10 +27,21 @@ mkdir /root/7ma/logs
 ```
 mkdir /root/7ma/config
 ```
-然后去 /root/7ma/config 目录创建Authorization.txt，填写好自己的Authorization
+然后去 /root/7ma/config 目录
+```
+cd /root/7ma/config
+```
+创建Authorization.txt，填写好自己的Authorization后，esa 接着输入 :wq 保存退出
+```
+vi Authorization.txt
+```
 
 ### 3.启动docker
-
+首先进入 /root/7ma
+```
+cd /root/7ma
+```
+然后创建并启动docker
 ```
 docker run -dit --name 7ma \
   --hostname 7ma \
