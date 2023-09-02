@@ -24,7 +24,9 @@ Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpcxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 复制保存好，后面的部署需要将这段Authorization填入到Authorization.txt里面
 
 # web部署
-## 方式一、docker运行
+<details>
+  <summary>方式一、docker运行</summary>
+
 ### 1.创建映射日志目录
 ```
 mkdir /root/7ma
@@ -64,8 +66,12 @@ docker run -dit --name 7ma \
 ```
 IP:4321
 ```
+</details>
 
-## 方式二、vps部署
+
+<details>
+  <summary>方式二、vps部署</summary>
+
 ### 1.使用wget下载源码
 ```
 wget https://github.com/zhacha222/7ma/releases/download/v1.0/7ma_web.v1.0.zip -P /root
@@ -92,8 +98,11 @@ python3 app.py
 ```
 IP:4321
 ```
+</details>
 
-## 方式三、宝塔部署
+<details>
+  <summary>方式三、宝塔部署</summary>
+
 ### 1.下载最新源码（在[releases](https://github.com/zhacha222/7ma/releases/tag/v1.0)里面）
 ### 2.解压到 /root路径下
 ### 3.侧边栏打开网站—python项目
@@ -110,10 +119,12 @@ python版本选择3.7.5
 ```
 http://localhost:4321
 ```
+</details>
 
 
+<details>
+  <summary>方式四、本地python运行(本地调试环境python3.7.5)</summary>
 
-## 方式四、本地python运行(本地调试环境python3.7.5)
 ### 1.下载最新源码（在[releases](https://github.com/zhacha222/7ma/releases/tag/v1.0)里面）
 ### 2.在config文件夹创建Authorization.txt，填写好自己的Authorization
 ### 3.安装依赖
@@ -128,4 +139,71 @@ python3 app.py
 ```
 http://localhost:4321
 ```
+</details>
+
+
+# 7ma出行 API 文档
+<details>
+  <summary>获取首页</summary>
+
+
+  - **请求方法：** GET
+  - **URL：** http://IP:4321/
+  - **描述：** 获取7ma出行App首页。
+</details>
+
+<details>
+  <summary>提交订单</summary>
+
+  - **请求方法：** POST
+  - **URL：** http://IP:4321/process
+  - **描述：** 提交订单并尝试开锁。
+  - **请求体：**
+    - **bike_number (string, 必需)：** 要租借的车辆编号。
+</details>
+
+<details>
+  <summary>示例请求：</summary>
+
+  ```http
+  POST /process
+  Content-Type: application/json
+
+  {
+    "bike_number": "123456"
+  }
+  ```
+</details>
+
+<details>
+  <summary>示例响应：</summary>
+
+
+  成功响应：
+
+  ```json
+  {
+    "message": "下单成功",
+    "unlock_result": "开锁成功",
+    "is_success": true
+  }
+  ```
+
+  失败响应：
+
+  ```json
+  {
+    "message": "下单失败，请稍后再试。",
+    "is_success": false
+  }
+  ```
+</details>
+
+<details>
+  <summary>注意事项：</summary> 
+
+  - 一分钟内只能提交一次订单，否则会收到 "一分钟内只能提交一次订单，请稍后再试。" 的错误响应。
+  - 如果订单成功，将尝试开锁，如果开锁成功，将返回 "开锁成功" 的响应。
+
+</details>
 
