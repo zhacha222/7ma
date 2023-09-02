@@ -77,7 +77,7 @@ IP:4321
 
 
 ## 方式四、本地python运行(本地调试环境python3.7.5)
-### 1.下载最新源码（在issues里面）
+### 1.下载最新源码（在releases[https://github.com/zhacha222/7ma/releases/tag/v1.0]里面）
 ### 2.在config文件夹创建Authorization.txt，填写好自己的Authorization
 ### 3.安装依赖
 ```
