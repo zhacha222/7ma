@@ -8,8 +8,7 @@ app.py实现下单开锁的功能
 
 scheduler.py实现监听订单状态，每一分钟检查一次，发现订单立即还车
 
-# IOS
-### 7ma出行 扫码版
+# IOS 7ma出行 扫码版
 iOS用户可以直接使用下面这个快捷指令，注释在第一行，自行查看
 ```
 https://www.icloud.com/shortcuts/528ae1ae4f8e4b60a1b15859f2c167eb
@@ -41,29 +40,44 @@ docker run -dit --name 7ma \
   -v $PWD/logs:/app/logs \
   zhacha222/7ma:latest
 ```
-
-# 方式二、vps部署
-### 1.把源码下载然后上传进vps
-### 2.在config文件夹创建Authorization.txt，填写好自己的Authorization
-### 3.安装python3.7.5
-### 4.安装依赖
-```
-pip3 install Flask requests
-```
-### 5.启动
-```
-python3 app.py
-```
-### 6.访问网站
+### 4.访问网站
 ```
 IP:4321
 ```
 
-# 方式三、宝塔部署
+## 方式二、vps部署
+### 1.使用wget下载源码
+```
+wget https://github.com/zhacha222/7ma/releases/download/v1.0/7ma_web.v1.0.zip -P /root
+```
+### 2.解压源码（假设你已经安装了unzip）
+```
+unzip /root/aaaa/7ma_web.v1.0.zip -d /root
+```
+### 3.删除压缩包
+```
+rm /root/7ma_web.v1.0.zip
+```
+### 4.在/root/7ma/config文件夹创建Authorization.txt，填写好自己的Authorization
+### 5.安装python3.7.5
+### 6.安装依赖
+```
+pip3 install Flask requests
+```
+### 7.启动
+```
+python3 app.py
+```
+### 8.访问网站
+```
+IP:4321
+```
+
+## 方式三、宝塔部署
 
 
 ## 方式四、本地python运行(本地调试环境python3.7.5)
-### 1.把源码下载下来
+### 1.下载最新源码（在issues里面）
 ### 2.在config文件夹创建Authorization.txt，填写好自己的Authorization
 ### 3.安装依赖
 ```
