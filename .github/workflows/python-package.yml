@@ -29,13 +29,8 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
-        python3 -m pip install Flask requests pytest
+        python3 -m pip install Flask requests pytest  # 根据您的项目需求安装依赖项
 
-    - name: Run tests with Python ${{ matrix.python-version }}
+    - name: Run custom tests with Python ${{ matrix.python-version }}
       run: |
-        # 在这里添加适合您的项目的测试命令，例如：pytest
-        pytest
-
-    - name: Start the application with Python ${{ matrix.python-version }}
-      run: |
-        python3 app.py
+        python3 app.py  # 运行您的主程序，这将执行应用程序中的测试或自定义检查
