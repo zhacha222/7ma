@@ -28,8 +28,8 @@ jobs:
 
     - name: Install dependencies
       run: |
-        python3 -m pip3 install --upgrade pip
-        python3 -m pip3 install Flask requests pytest
+        python3 -m pip install --upgrade pip
+        python3 -m pip install Flask requests pytest
 
     - name: Run tests with Python ${{ matrix.python-version }}
       run: |
