@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>7MA出行 - 处理结果</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
+            margin-top: 10px; /* Add margin top to center-align the h2 */
+        }
+
+        p {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .btn-primary {
+            display: block;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            h2 {
+                font-size: 1.5rem;
+            }
+
+            p {
+                font-size: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>订单处理结果</h2>
+    {% if data %}
+    <p>{{ data.message }}</p>
+    {% if data.unlock_result %}
+    <p>{{ data.unlock_result }}</p>
+    {% endif %}
+    {% endif %}
+    <a href="/" class="btn btn-primary">返回</a>
+</div>
+
+</body>
+</html>

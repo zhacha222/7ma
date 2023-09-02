@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7MA出行</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #fff;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        form {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input {
+            padding: 8px;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 3px;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 15px;
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .logo {
+            width: 20px;
+            height: 20px;
+            margin-right: 5px;
+        }
+         .announcement {
+            
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            color: #555;
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>
+        欢迎使用 7MA 出行
+    </h1>
+    <div class="announcement">
+    <p>公告：欢迎使用我们的自助服务平台。请按照提示输入单车编号并下单。</p>
+</div>
+    <form action="/process" method="post">
+        <label for="bikeNumber">请输入单车编号：</label>
+        <input type="text" id="bikeNumber" name="bike_number" required>
+        <button type="submit">下单</button>
+    </form>
+
+
+</div>
+
+
+
+</body>
+</html>
