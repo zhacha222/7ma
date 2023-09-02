@@ -163,7 +163,7 @@ http://localhost:4321
 </details>
 
 <details>
-  <summary>示例请求：</summary>
+  <summary>示例请求</summary>
 
   ```http
   POST /process
@@ -176,7 +176,7 @@ http://localhost:4321
 </details>
 
 <details>
-  <summary>示例响应：</summary>
+  <summary>示例响应</summary>
 
 
   成功响应：
@@ -200,7 +200,7 @@ http://localhost:4321
 </details>
 
 <details>
-  <summary>注意事项：</summary> 
+  <summary>注意事项</summary> 
 
   - 一分钟内只能提交一次订单，否则会收到 "一分钟内只能提交一次订单，请稍后再试。" 的错误响应。
   - 如果订单成功，将尝试开锁，如果开锁成功，将返回 "开锁成功" 的响应。
