@@ -17,11 +17,11 @@ https://www.icloud.com/shortcuts/528ae1ae4f8e4b60a1b15859f2c167eb
 ```
 
 # 抓包
-首先要抓包newmapi.7mate.cn这个域名下，请求头里面的Authorization，大概形式是这样
+首先要抓包`newmapi.7mate.cn`这个域名下，请求头里面的`Authorization`，大概形式是这样
 ```
 Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpcxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
-复制保存好，后面的部署需要将这段Authorization填入到Authorization.txt里面
+复制保存好，后面的部署需要将这段`Authorization`填入到`Authorization.txt`里面
 
 # web部署
 <details>
@@ -42,7 +42,7 @@ mkdir /root/7ma/config
 ```
 cd /root/7ma/config
 ```
-创建Authorization.txt，填写好自己的Authorization后，esa 接着输入 :wq 保存退出
+创建Authorization.txt，填写好自己的`Authorization`后，`esc` 接着输入 `:wq` 保存退出
 ```
 vi Authorization.txt
 ```
@@ -84,7 +84,7 @@ unzip /root/aaaa/7ma_web.v1.0.zip -d /root
 ```
 rm /root/7ma_web.v1.0.zip
 ```
-### 4.在/root/7ma/config文件夹创建Authorization.txt，填写好自己的Authorization
+### 4.在`/root/7ma/config`文件夹创建`Authorization.txt`，填写好自己的`Authorization`
 ### 5.安装python3.7.5
 ### 6.安装依赖
 ```
@@ -109,12 +109,19 @@ IP:4321
 ### 4.添加python项目
 ### 5.配置参数
 ```
-启动文件选择app.py
-python版本选择3.7.5
-运行方式选择python
-其他自己填
+项目路径：/root/7ma
+项目名称：7ma出行
+运行文件：/root/7ma/app.py
+项目端口：4321
+python版本：3.7.5
+框架：flask
+运行方式：python
+其他不填
 ```
-### 6.确认
+### 6.保存配置，
+### 7.安装模块
+点击模块，安装`Flask`和`requests`这两个模块
+### 8.重启项目
 ### 7.访问网站
 ```
 http://localhost:4321
@@ -126,7 +133,7 @@ http://localhost:4321
   <summary>方式四、本地python运行(本地调试环境python3.7.5)</summary>
 
 ### 1.下载最新源码（在[releases](https://github.com/zhacha222/7ma/releases/tag/v1.0)里面）
-### 2.在config文件夹创建Authorization.txt，填写好自己的Authorization
+### 2.在`config`文件夹创建`Authorization.txt`，填写好自己的`Authorization`
 ### 3.安装依赖
 ```
 pip3 install Flask requests
