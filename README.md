@@ -2,17 +2,26 @@
 7ma出行app，免费骑车
 
 # 原理
-利用7ma出行app下单开锁后，两分钟之内立即还车不收费，实现白嫖用车
+利用7ma出行app下单开锁后，两分钟之内立即还车不收费，实现白嫖用车，总共两个python脚本，利用flask框架构建
 
 app.py 实现下单开锁的功能
 
 scheduler.py 实现监听订单状态，每一分钟检查一次，发现订单立即还车
+
+提示：钱包里至少要留一分钱，才能下单
 
 # IOS 7ma出行 扫码版
 iOS用户可以直接使用下面这个快捷指令，注释在第一行，自行查看
 ```
 https://www.icloud.com/shortcuts/528ae1ae4f8e4b60a1b15859f2c167eb
 ```
+
+# 抓包
+首先要抓包newmapi.7mate.cn这个域名下，请求头里面的Authorization，大概形式是这样
+```
+Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpcxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+```
+复制保存好，后面的部署需要将这段Authorization填入到Authorization.txt里面
 
 # web部署
 ## 方式一、docker运行
