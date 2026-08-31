@@ -1,0 +1,146 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>认证提交（免押金用车）</h1>
+    <p>账号：<span class="mono">{{ masked }}</span>。填写认证信息并提交，审核通过后可免押金用车。</p>
+    <p style="margin-top:8px;"><a href="/admin/accounts">&larr; 返回账号管理</a></p>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <h2>当前认证状态</h2>
+    {% if cert.ok %}
+        {% if cert.certified %}
+        <div><span class="badge success">已认证</span> 已通过审核，可免押金用车。</div>
+        {% elif cert.reviewing %}
+        <div><span class="badge warning">审核中</span> 认证信息已提交，等待审核。</div>
+        {% else %}
+        <div><span class="badge muted">未认证</span> 尚未提交认证，或未查询到有效记录。</div>
+        {% endif %}
+        {% if cert.data %}
+        <div class="hint" style="margin-top:8px;">状态码：{{ cert.status }}；学校：{{ cert.data.get('school_name') or '—' }}；姓名：{{ cert.data.get('user_name') or '—' }}</div>
+        {% endif %}
+    {% else %}
+    <div><span class="badge danger">查询失败</span> {{ cert.error }}</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>提交认证</h2>
+    <form action="/admin/cert/{{ index }}" method="post">
+        <div class="form-row">
+            <div>
+                <label for="name">学校名称</label>
+                <input type="text" id="name" name="name" value="{{ payload.get('name') or '' }}" placeholder="例如：南京大学(鼓楼校区)">
+            </div>
+            <div>
+                <label for="area_id">运营区ID</label>
+                <input type="text" id="area_id" name="area_id" value="{{ payload.get('area_id') }}" placeholder="例如：90">
+            </div>
+            <div>
+                <label for="area_type">运营区类型</label>
+                <select id="area_type" name="area_type">
+                    <option value="1" {% if payload.get('area_type') == 1 %}selected{% endif %}>1</option>
+                    <option value="2" {% if payload.get('area_type') == 2 %}selected{% endif %}>2</option>
+                    <option value="3" {% if payload.get('area_type') == 3 %}selected{% endif %}>3</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="real_name">真实姓名</label>
+                <input type="text" id="real_name" name="real_name" value="{{ payload.get('real_name') or '' }}" placeholder="真实姓名">
+            </div>
+            <div>
+                <label for="cert_type">认证类型</label>
+                <select id="cert_type" name="cert_type">
+                    <option value="1" {% if payload.get('cert_type') == 1 %}selected{% endif %}>身份证号</option>
+                    <option value="2" {% if payload.get('cert_type') == 2 %}selected{% endif %}>工号/学号/一卡通/其他</option>
+                </select>
+            </div>
+            <div>
+                <label for="person_type">人员类型</label>
+                <select id="person_type" name="person_type">
+                    <option value="1" {% if payload.get('person_type') == 1 %}selected{% endif %}>学生</option>
+                    <option value="2" {% if payload.get('person_type') == 2 %}selected{% endif %}>教职工</option>
+                    <option value="3" {% if payload.get('person_type') == 3 %}selected{% endif %}>服务保障人员</option>
+                    <option value="4" {% if payload.get('person_type') == 4 %}selected{% endif %}>其他人员</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div id="cardNoBox">
+                <label for="card_no">身份证号</label>
+                <input type="text" id="card_no" name="card_no" value="{{ payload.get('card_no') or '' }}" placeholder="认证类型为“身份证号”时填写">
+            </div>
+            <div id="otherBox">
+                <label for="other">工号/学号/一卡通/其他</label>
+                <input type="text" id="other" name="other" value="{{ payload.get('other') or '' }}" placeholder="认证类型为“工号/学号/一卡通/其他”时填写">
+            </div>
+            <div>
+                <label for="student_type">学生类型（可选）</label>
+                <select id="student_type" name="student_type">
+                    <option value="" {% if not payload.get('student_type') %}selected{% endif %}>不选择</option>
+                    <option value="1" {% if payload.get('student_type') == '1' %}selected{% endif %}>本科新生</option>
+                    <option value="2" {% if payload.get('student_type') == '2' %}selected{% endif %}>研究生新生</option>
+                    <option value="3" {% if payload.get('student_type') == '3' %}selected{% endif %}>其他</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="graduate_time">毕业时间（可选）</label>
+                <input type="text" id="graduate_time" name="graduate_time" value="{{ payload.get('graduate_time') or '' }}" placeholder="例如：2029-06-30">
+            </div>
+            <div>
+                <label for="cert_photo">认证照片 key（可选）</label>
+                <input type="text" id="cert_photo" name="cert_photo" value="{{ payload.get('cert_photo') or '' }}" placeholder="留空表示不上传照片">
+            </div>
+            <div>
+                <label for="is_upload_cert_photo">是否上传认证照片</label>
+                <select id="is_upload_cert_photo" name="is_upload_cert_photo">
+                    <option value="0" {% if payload.get('is_upload_cert_photo') == 0 %}selected{% endif %}>否</option>
+                    <option value="1" {% if payload.get('is_upload_cert_photo') == 1 %}selected{% endif %}>是</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div>
+                <label for="cycling_order_face_recognition">骑行订单人脸识别</label>
+                <select id="cycling_order_face_recognition" name="cycling_order_face_recognition">
+                    <option value="0" {% if payload.get('cycling_order_face_recognition') == 0 %}selected{% endif %}>否</option>
+                    <option value="1" {% if payload.get('cycling_order_face_recognition') == 1 %}selected{% endif %}>是</option>
+                </select>
+            </div>
+        </div>
+
+        <button type="submit" class="btn success block" style="margin-top:8px;">提交认证</button>
+    </form>
+    <div class="hint">提交为真实接口请求，请确认信息无误后再提交。审核结果可在账号管理页查看。</div>
+</div>
+
+<script>
+(function () {
+    const certType = document.getElementById('cert_type');
+    const cardNoBox = document.getElementById('cardNoBox');
+    const otherBox = document.getElementById('otherBox');
+    function sync() {
+        const isId = certType.value === '1';
+        cardNoBox.style.display = isId ? '' : 'none';
+        otherBox.style.display = isId ? 'none' : '';
+    }
+    certType.addEventListener('change', sync);
+    sync();
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,219 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="page-head">
+    <div>
+        <h1>账号管理</h1>
+        <p>管理用于下单的 Authorization，前端会按列表顺序依次尝试，第一个不可用时自动切换下一个。</p>
+    </div>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
+        <h2 style="margin:0;">Authorization 列表（{{ accounts|length }} 个）</h2>
+        <div class="toolbar">
+            {% if accounts %}
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#55606e;">
+                <input type="checkbox" id="selectAll"> 全选
+            </label>
+            <span id="selectedCount" class="hint" style="margin:0;">未选择</span>
+            <form id="batchForm" action="/admin/accounts/cert/batch" method="post" style="display:inline-block;">
+                <input type="hidden" name="selected" id="batchSelected">
+                <button type="submit" class="btn success">批量自动认证</button>
+            </form>
+            <a href="/admin/accounts?refresh=1" class="btn secondary">刷新账户资产</a>
+            {% endif %}
+            <button type="button" class="btn" onclick="openAdd()">添加 Token</button>
+            <button type="button" class="btn" onclick="openPhone()">手机号获取 Token</button>
+        </div>
+    </div>
+
+    {% if accounts %}
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px;">选择</th>
+                <th style="width:48px;">序号</th>
+                <th>Authorization</th>
+                <th>姓名</th>
+                <th>学校</th>
+                <th>手机号</th>
+                <th>骑行卡资产</th>
+                <th>认证状态</th>
+                <th style="width:250px;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for account in accounts %}
+            <tr>
+                <td><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
+                <td>{{ loop.index }}</td>
+                <td style="word-break:break-all;">
+                    <div class="mono" style="font-size:13px;">{{ account.masked }}</div>
+                    {% if not account.info.ok %}
+                    <div style="color:#dc2626;font-size:12px;">{{ account.info.error }}</div>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.username or '—' }}{% else %}—{% endif %}</td>
+                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.school_name or '—' }}{% else %}—{% endif %}</td>
+                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.show_phone or '—' }}{% else %}—{% endif %}</td>
+                <td style="font-size:13px;">
+                    {% if account.cards %}
+                    {% for card in account.cards %}
+                    <div style="padding:3px 0;">
+                        <div>{{ card.name }}</div>
+                        <div style="color:#7c8894;">{{ card.carmodel_name }} · 剩余 {{ card.remaining }} 次 / 共 {{ card.times }} 次</div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <span style="color:#9aa3af;">无骑行卡</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;">
+                    {% if account.cert.ok %}
+                        {% if account.cert.certified %}
+                        <span class="badge success">已认证</span>
+                        {% elif account.cert.reviewing %}
+                        <span class="badge warning">审核中</span>
+                        {% else %}
+                        <span class="badge muted">未认证</span>
+                        {% endif %}
+                    {% else %}
+                    <span class="badge danger">查询失败</span>
+                    <div style="color:#7c8894;margin-top:4px;">{{ account.cert.error }}</div>
+                    {% endif %}
+                </td>
+                <td style="white-space:nowrap;">
+                    <div class="toolbar" style="gap:6px;">
+                        <a href="/admin/edit/{{ account.index }}" class="btn small secondary">编辑</a>
+                        <form action="/admin/move/{{ account.index }}/up" method="post">
+                            <button type="submit" class="btn small secondary" {% if loop.first %}disabled{% endif %}>上移</button>
+                        </form>
+                        <form action="/admin/move/{{ account.index }}/down" method="post">
+                            <button type="submit" class="btn small secondary" {% if loop.last %}disabled{% endif %}>下移</button>
+                        </form>
+                        <form action="/admin/delete/{{ account.index }}" method="post" onsubmit="return confirm('确认删除该 Authorization？');">
+                            <button type="submit" class="btn small danger">删除</button>
+                        </form>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="margin-top:12px;">
+        <form action="/admin/clear" method="post" onsubmit="return confirm('确认清空所有 Authorization？');">
+            <button type="submit" class="btn small danger">清空全部</button>
+        </form>
+    </div>
+    {% else %}
+    <div class="hint">暂无 Authorization，请点击右上角「添加 Token」或「手机号获取 Token」。</div>
+    {% endif %}
+</div>
+
+<!-- 添加 Token 弹窗 -->
+<div class="modal-overlay" id="addModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>添加 Token</h3>
+            <button type="button" class="modal-close" onclick="closeAdd()">×</button>
+        </div>
+        <div class="modal-body">
+            <form action="/admin/add" method="post">
+                <label for="authorization">单个 Authorization</label>
+                <input type="text" id="authorization" name="authorization" placeholder="粘贴单个 Authorization（例如 Bearer eyJ...）">
+                <button type="submit" class="btn block">添加</button>
+            </form>
+            <div class="modal-divider"><span>或批量导入</span></div>
+            <form action="/admin/import" method="post">
+                <label for="authorizations">多个 Authorization</label>
+                <textarea name="authorizations" id="authorizations" placeholder="每行一个 Authorization，也可用逗号或分号分隔"></textarea>
+                <button type="submit" class="btn block">批量导入</button>
+            </form>
+            <div class="hint">自动去重，已存在的不会重复添加。</div>
+        </div>
+    </div>
+</div>
+
+<!-- 手机号获取 Token 弹窗 -->
+<div class="modal-overlay" id="phoneModal">
+    <div class="modal" style="width:680px;max-width:calc(100vw - 32px);">
+        <div class="modal-head">
+            <h3>手机号获取 Token</h3>
+            <button type="button" class="modal-close" onclick="closePhone()">×</button>
+        </div>
+        <div class="modal-body" style="padding:0;">
+            <iframe id="phoneFrame" src="/admin/phone-login?embed=1" style="width:100%;height:640px;border:0;border-radius:0 0 14px 14px;"></iframe>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: 520px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e8edf5; }
+    .modal-head h3 { margin: 0; font-size: 17px; }
+    .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
+    .modal-close:hover { background: #e0e6ef; }
+    .modal-body { padding: 18px 20px; }
+    .modal-divider { display: flex; align-items: center; gap: 10px; color: #9aa3af; font-size: 12px; margin: 14px 0 12px; }
+    .modal-divider::before, .modal-divider::after { content: ""; flex: 1; height: 1px; background: #e8edf5; }
+    .btn.block { width: 100%; }
+</style>
+
+<script>
+    function openAdd() { document.getElementById('addModal').classList.add('open'); }
+    function closeAdd() { document.getElementById('addModal').classList.remove('open'); }
+    function openPhone() {
+        document.getElementById('phoneModal').classList.add('open');
+        var frame = document.getElementById('phoneFrame');
+        if (frame && frame.getAttribute('src') !== '/admin/phone-login?embed=1') frame.src = '/admin/phone-login?embed=1';
+    }
+    function closePhone() { document.getElementById('phoneModal').classList.remove('open'); }
+    document.getElementById('addModal').addEventListener('click', function (e) { if (e.target === this) closeAdd(); });
+    document.getElementById('phoneModal').addEventListener('click', function (e) { if (e.target === this) closePhone(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeAdd(); closePhone(); } });
+
+    var selectAll = document.getElementById('selectAll');
+    var batchForm = document.getElementById('batchForm');
+    var rowSelects = function () { return Array.prototype.slice.call(document.querySelectorAll('.row-select')); };
+    function updateCount() {
+        var countEl = document.getElementById('selectedCount');
+        if (!countEl) return;
+        var checked = rowSelects().filter(function (c) { return c.checked; });
+        countEl.textContent = checked.length ? '已选 ' + checked.length + ' 个' : '未选择';
+        if (selectAll) {
+            var all = rowSelects();
+            selectAll.checked = all.length > 0 && checked.length === all.length;
+            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+    }
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            rowSelects().forEach(function (c) { c.checked = selectAll.checked; });
+            updateCount();
+        });
+    }
+    document.querySelectorAll('.row-select').forEach(function (c) { c.addEventListener('change', updateCount); });
+    if (batchForm) {
+        batchForm.addEventListener('submit', function (e) {
+            var vals = rowSelects().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+            if (!vals.length) {
+                e.preventDefault();
+                alert('请先勾选要自动认证的账号');
+                return;
+            }
+            document.getElementById('batchSelected').value = vals.join(',');
+            if (!confirm('确认对选中的 ' + vals.length + ' 个账号执行自动认证？')) e.preventDefault();
+        });
+    }
+    updateCount();
+</script>
+{% endblock %}

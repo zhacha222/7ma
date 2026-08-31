@@ -1,0 +1,408 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>设置</h1>
+    <p>管理日志清理、API 密钥、通知渠道与登录密码。</p>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="settings-tabs" role="tablist">
+    <button type="button" class="settings-tab active" data-tab="retention">📅 日志自动清理</button>
+    <button type="button" class="settings-tab" data-tab="api">🔑 API 密钥</button>
+    <button type="button" class="settings-tab" data-tab="notification">🔔 通知渠道</button>
+    <button type="button" class="settings-tab" data-tab="password">🔐 修改密码</button>
+</div>
+
+<div class="tab-panel active" id="panel-retention">
+    <div class="card">
+        <h2>📅 日志自动清理</h2>
+        <p class="hint" style="margin-top:0;">日志文件保留天数，超过该天数的日志会被自动删除（每天后台启动后每小时检查一次）。</p>
+        <form action="/admin/settings/retention" method="post">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:14px;color:#55606e;font-weight:600;">保留天数</span>
+                <input type="number" id="retention_days" name="retention_days" value="{{ retention_days }}" min="0" step="1" required style="width:220px;height:42px;padding:0 14px;font-size:15px;border:1px solid #dbe2ec;border-radius:9px;margin:0;">
+                <button type="submit" class="btn" style="height:42px;padding:0 22px;">保存</button>
+            </div>
+        </form>
+        <div class="hint">填 0 表示不自动清理。</div>
+    </div>
+</div>
+
+<div class="tab-panel" id="panel-api">
+    <div class="card">
+        <h2>🔑 API 密钥</h2>
+        <p class="hint" style="margin-top:0;">用于通过 API 远程调用本服务（例如请求订单、查询状态），请求头需携带 <span class="mono">X-API-Key</span>。</p>
+        <div class="form-row">
+            <div style="max-width:560px;">
+                <label for="api_key">当前密钥</label>
+                <input type="text" id="api_key" class="mono" value="{{ api_key }}" readonly onclick="this.select()">
+            </div>
+            <div style="display:flex;gap:10px;">
+                <button type="button" class="btn secondary" onclick="copyApiKey()">复制</button>
+                <form action="/admin/settings/api/regenerate" method="post" onsubmit="return confirm('重新生成后旧密钥将立即失效，确认继续？');">
+                    <button type="submit" class="btn warning">重新生成</button>
+                </form>
+            </div>
+        </div>
+        <div class="hint" style="margin-top:12px;">远程下单接口：<span class="mono">POST /api/v1/order</span>（JSON 参数 <span class="mono">{"bike_number":"编号"}</span>）；状态查询：<span class="mono">GET /api/v1/status</span>。</div>
+    </div>
+</div>
+
+<div class="tab-panel" id="panel-notification">
+    <div class="card">
+        <h2>🔔 通知渠道</h2>
+        <p class="hint" style="margin-top:0;">可绑定多个通知方式，绑定后会同时推送。配置教程见 <a href="/admin/tutorials">教程文档</a>。</p>
+
+        <form action="/admin/settings/notification/toggles" method="post">
+            <h3 style="margin:0 0 4px;">推送事件</h3>
+            <div class="switch-list" style="margin-bottom:12px;">
+                <label class="switch-item"><input type="checkbox" name="notify_login" value="1" {% if notification.notify_login %}checked{% endif %}> 登录后台</label>
+                <label class="switch-item"><input type="checkbox" name="notify_order" value="1" {% if notification.notify_order %}checked{% endif %}> 请求订单及还车状态</label>
+                <label class="switch-item"><input type="checkbox" name="notify_points" value="1" {% if notification.notify_points %}checked{% endif %}> 积分获取结果及账号信息统计</label>
+                <label class="switch-item"><input type="checkbox" name="notify_account" value="1" {% if notification.notify_account %}checked{% endif %}> 添加账号</label>
+            </div>
+            <button type="submit" class="btn small secondary">保存事件开关</button>
+        </form>
+
+        <hr style="margin:24px 0;border:none;border-top:1px solid var(--border);">
+
+        <h3 style="margin:0 0 12px;">绑定通知方式</h3>
+        <form action="/admin/settings/notification/binding/add" method="post" id="addBindingForm">
+            <div class="form-row">
+                <div style="max-width:320px;">
+                    <label for="addChannel">渠道</label>
+                    <select id="addChannel" name="channel" onchange="renderChannelFields('addChannelFields', this.value, {})">
+                        {% for ch in channels %}
+                        {% if ch != 'none' %}
+                        <option value="{{ ch }}">{{ channel_labels.get(ch, ch) }}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div id="addChannelFields"></div>
+            <button type="submit" class="btn">绑定</button>
+        </form>
+
+        <h3 style="margin:24px 0 12px;">已绑定的通知方式（{{ bindings|length }}）</h3>
+        {% if bindings %}
+        <div class="binding-list">
+            {% for binding in bindings %}
+            <div class="binding-item {% if not binding.enabled %}disabled{% endif %}">
+                <div class="binding-main">
+                    <div class="binding-top">
+                        <span class="badge info">{{ channel_labels.get(binding.channel, binding.channel) }}</span>
+                        {% if binding.enabled %}
+                        <span class="badge success">已启用</span>
+                        {% else %}
+                        <span class="badge muted">已停用</span>
+                        {% endif %}
+                        {% if binding.last_status == 'ok' %}
+                        <span class="badge success">发送成功</span>
+                        {% elif binding.last_status == 'failed' %}
+                        <span class="badge danger">发送失败</span>
+                        {% else %}
+                        <span class="badge muted">未测试</span>
+                        {% endif %}
+                    </div>
+                    <div class="binding-config mono">
+                        {% if binding.config %}
+                        {% for k, v in binding.config.items() %}
+                        <span class="cfg-item">{{ k }}={{ (v|string)[:24] }}{% if (v|string)|length > 24 %}…{% endif %}</span>
+                        {% endfor %}
+                        {% else %}
+                        <span style="color:#9aa3af;">未填写配置</span>
+                        {% endif %}
+                    </div>
+                    {% if binding.last_message %}
+                    <div class="binding-meta">{{ binding.last_message }}{% if binding.last_time %} · {{ binding.last_time }}{% endif %}</div>
+                    {% endif %}
+                </div>
+                <div class="binding-actions">
+                    <button type="button" class="btn small secondary" onclick="openEditBinding('{{ binding.id }}')">编辑</button>
+                    <form action="/admin/settings/notification/binding/{{ binding.id }}/test" method="post" style="display:inline;">
+                        <button type="submit" class="btn small info">测试消息</button>
+                    </form>
+                    <form action="/admin/settings/notification/binding/{{ binding.id }}/toggle" method="post" style="display:inline;">
+                        <button type="submit" class="btn small secondary">{{ '停用' if binding.enabled else '启用' }}</button>
+                    </form>
+                    <form action="/admin/settings/notification/binding/{{ binding.id }}/delete" method="post" style="display:inline;" onsubmit="return confirm('确认解除该通知绑定？');">
+                        <button type="submit" class="btn small danger">删除</button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="hint">尚未绑定通知方式，绑定后下单、还车、积分等事件会推送到这里。</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="tab-panel" id="panel-password">
+    <div class="card">
+        <h2>🔐 修改密码</h2>
+        <form action="/admin/settings" method="post">
+            <label for="current">当前密码</label>
+            <input type="password" id="current" name="current" required>
+            <label for="new_password">新密码</label>
+            <input type="password" id="new_password" name="new_password" required>
+            <label for="confirm">确认新密码</label>
+            <input type="password" id="confirm" name="confirm" required>
+            <button type="submit" class="btn">保存修改</button>
+        </form>
+        <div class="hint">新密码至少 4 位。</div>
+    </div>
+</div>
+
+<!-- 编辑绑定弹窗 -->
+<div class="modal-overlay" id="editModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>编辑通知方式</h3>
+            <button type="button" class="modal-close" onclick="closeEditBinding()">×</button>
+        </div>
+        <form id="editBindingForm" method="post">
+            <div class="modal-body">
+                <label for="editChannel">渠道</label>
+                <select id="editChannel" name="channel" onchange="renderChannelFields('editChannelFields', this.value, currentEditConfig())">
+                    {% for ch in channels %}
+                    {% if ch != 'none' %}
+                    <option value="{{ ch }}">{{ channel_labels.get(ch, ch) }}</option>
+                    {% endif %}
+                    {% endfor %}
+                </select>
+                <div id="editChannelFields"></div>
+                <div style="display:flex;gap:10px;margin-top:14px;">
+                    <button type="submit" class="btn">保存修改</button>
+                    <button type="button" class="btn secondary" onclick="closeEditBinding()">取消</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+    .settings-tabs {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 18px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 8px;
+        box-shadow: var(--shadow);
+    }
+    .settings-tab {
+        border: none;
+        background: transparent;
+        color: #55606e;
+        font-size: 14px;
+        font-weight: 600;
+        padding: 9px 16px;
+        border-radius: 9px;
+        cursor: pointer;
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+    .settings-tab:hover { background: #f1f5fb; }
+    .settings-tab.active { background: var(--primary); color: #ffffff; box-shadow: 0 6px 14px rgba(79,110,247,0.28); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .switch-list { display: flex; flex-direction: column; gap: 10px; }
+    .switch-item { display: flex; align-items: center; gap: 8px; font-size: 14px; color: #334155; margin: 0; cursor: pointer; }
+    .switch-item input { width: auto; margin: 0; }
+    .field-group { margin-bottom: 10px; }
+    .binding-list { display: flex; flex-direction: column; gap: 12px; }
+    .binding-item {
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 14px 16px;
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: #fbfcfe;
+    }
+    .binding-item.disabled { opacity: 0.72; }
+    .binding-top { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .binding-config { display: flex; gap: 8px; flex-wrap: wrap; font-size: 12px; color: #4b5563; }
+    .cfg-item { background: #eef2f7; border-radius: 6px; padding: 2px 7px; }
+    .binding-meta { font-size: 12.5px; color: var(--muted); margin-top: 8px; word-break: break-all; }
+    .binding-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: 480px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e8edf5; }
+    .modal-head h3 { margin: 0; font-size: 17px; }
+    .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
+    .modal-close:hover { background: #e0e6ef; }
+    .modal-body { padding: 18px 20px; }
+</style>
+
+<script>
+    var CHANNEL_FIELDS = {
+        telegram: [
+            {name: 'telegram_bot_token', label: 'Bot Token', type: 'text'},
+            {name: 'telegram_chat_id', label: 'Chat ID', type: 'text'}
+        ],
+        dingtalk: [
+            {name: 'dingtalk_webhook', label: 'Webhook 地址', type: 'text'},
+            {name: 'dingtalk_secret', label: '加签 Secret（可选）', type: 'text'}
+        ],
+        wecom: [
+            {name: 'wecom_webhook', label: '群机器人 Webhook', type: 'text'}
+        ],
+        feishu: [
+            {name: 'feishu_webhook', label: '群机器人 Webhook', type: 'text'}
+        ],
+        serverchan: [
+            {name: 'serverchan_sendkey', label: 'SendKey', type: 'text'}
+        ],
+        pushplus: [
+            {name: 'pushplus_token', label: 'Token', type: 'text'},
+            {name: 'pushplus_topic', label: '群组编码 Topic（可选）', type: 'text'}
+        ],
+        bark: [
+            {name: 'bark_server', label: '服务器地址（默认 https://api.day.app）', type: 'text'},
+            {name: 'bark_key', label: 'Key', type: 'text'}
+        ],
+        qqbot: [
+            {name: 'qqbot_base_url', label: 'API 地址（如 OneBot http://127.0.0.1:3000）', type: 'text'},
+            {name: 'qqbot_token', label: 'Token（可选）', type: 'text'},
+            {name: 'qqbot_target_type', label: '接收对象类型', type: 'select', options: [['private', '私聊'], ['group', '群聊']]},
+            {name: 'qqbot_target_id', label: '接收对象 ID（QQ号或群号）', type: 'text'}
+        ],
+        ntfy: [
+            {name: 'ntfy_server', label: '服务器地址（默认 https://ntfy.sh）', type: 'text'},
+            {name: 'ntfy_topic', label: 'Topic', type: 'text'},
+            {name: 'ntfy_token', label: 'Token（可选）', type: 'text'}
+        ],
+        gotify: [
+            {name: 'gotify_server', label: '服务器地址', type: 'text'},
+            {name: 'gotify_token', label: '应用 Token', type: 'text'}
+        ],
+        custom: [
+            {name: 'custom_url', label: 'Webhook URL', type: 'text'}
+        ]
+    };
+
+    var BINDINGS = {{ bindings | tojson }};
+    var currentBindingId = null;
+
+    function currentEditConfig() {
+        var channel = document.getElementById('editChannel').value;
+        if (!currentBindingId || !BINDINGS) return {};
+        for (var i = 0; i < BINDINGS.length; i++) {
+            if (String(BINDINGS[i].id) === String(currentBindingId)) {
+                if (String(BINDINGS[i].channel) === String(channel)) return BINDINGS[i].config || {};
+                return {};
+            }
+        }
+        return {};
+    }
+
+    function renderChannelFields(containerId, channel, config) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        var fields = CHANNEL_FIELDS[channel];
+        if (!fields) return;
+        fields.forEach(function (field) {
+            var wrap = document.createElement('div');
+            wrap.className = 'field-group';
+            var label = document.createElement('label');
+            label.textContent = field.label;
+            label.htmlFor = containerId + '_' + field.name;
+            wrap.appendChild(label);
+
+            if (field.type === 'select') {
+                var sel = document.createElement('select');
+                sel.name = field.name;
+                sel.id = containerId + '_' + field.name;
+                field.options.forEach(function (opt) {
+                    var o = document.createElement('option');
+                    o.value = opt[0];
+                    o.textContent = opt[1];
+                    if (String(config[field.name]) === String(opt[0])) o.selected = true;
+                    sel.appendChild(o);
+                });
+                wrap.appendChild(sel);
+            } else {
+                var input = document.createElement('input');
+                input.type = field.type || 'text';
+                input.name = field.name;
+                input.id = containerId + '_' + field.name;
+                input.value = config[field.name] || '';
+                input.placeholder = field.label;
+                wrap.appendChild(input);
+            }
+            container.appendChild(wrap);
+        });
+    }
+
+    function openEditBinding(id) {
+        currentBindingId = id;
+        for (var i = 0; i < BINDINGS.length; i++) {
+            if (String(BINDINGS[i].id) === String(id)) {
+                document.getElementById('editChannel').value = BINDINGS[i].channel;
+                renderChannelFields('editChannelFields', BINDINGS[i].channel, BINDINGS[i].config || {});
+                break;
+            }
+        }
+        document.getElementById('editBindingForm').action = '/admin/settings/notification/binding/' + id + '/update';
+        document.getElementById('editModal').classList.add('open');
+    }
+    function closeEditBinding() {
+        document.getElementById('editModal').classList.remove('open');
+        currentBindingId = null;
+    }
+    document.getElementById('editModal').addEventListener('click', function (e) {
+        if (e.target === this) closeEditBinding();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeEditBinding();
+    });
+
+    function copyApiKey() {
+        var el = document.getElementById('api_key');
+        el.select();
+        var ok = false;
+        try { ok = document.execCommand('copy'); } catch (e) {}
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(el.value);
+            ok = true;
+        }
+        alert(ok ? '已复制到剪贴板' : '复制失败，请手动复制');
+    }
+
+    function activateTab(name) {
+        document.querySelectorAll('.settings-tab').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.tab === name);
+        });
+        document.querySelectorAll('.tab-panel').forEach(function (panel) {
+            panel.classList.toggle('active', panel.id === 'panel-' + name);
+        });
+        try { localStorage.setItem('7ma_settings_tab', name); } catch (e) {}
+    }
+
+    document.querySelectorAll('.settings-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () { activateTab(btn.dataset.tab); });
+    });
+
+    var savedTab = 'retention';
+    try { savedTab = localStorage.getItem('7ma_settings_tab') || 'retention'; } catch (e) {}
+    var validTabs = ['retention', 'api', 'notification', 'password'];
+    if (validTabs.indexOf(savedTab) === -1) savedTab = 'retention';
+    activateTab(savedTab);
+
+    // 初始化新增表单渠道字段
+    renderChannelFields('addChannelFields', 'telegram', {});
+</script>
+{% endblock %}

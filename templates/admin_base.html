@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7MA出行 - 管理后台</title>
+    <style>
+        :root {
+            --bg: #f4f6fb;
+            --surface: #ffffff;
+            --border: #e8edf5;
+            --text: #1f2937;
+            --muted: #7c8894;
+            --primary: #4f6ef7;
+            --primary-dark: #3d58d8;
+            --primary-soft: #edf1ff;
+            --success: #16a34a;
+            --success-soft: #e7f8ee;
+            --danger: #dc2626;
+            --danger-soft: #fdeaea;
+            --warning: #d97706;
+            --warning-soft: #fdf3e2;
+            --info: #0ea5e9;
+            --info-soft: #e7f5fd;
+            --sidebar: #161d2e;
+            --sidebar-2: #1d2740;
+            --sidebar-text: #aab6cf;
+            --shadow: 0 6px 24px rgba(30, 41, 59, 0.08);
+            --radius: 14px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+        }
+        a { color: var(--primary); text-decoration: none; }
+        .layout { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 224px;
+            flex-shrink: 0;
+            background: linear-gradient(180deg, var(--sidebar), var(--sidebar-2));
+            color: var(--sidebar-text);
+            display: flex;
+            flex-direction: column;
+            position: sticky;
+            top: 0;
+            height: 100vh;
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 24px 22px 20px;
+            color: #ffffff;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .brand .logo {
+            width: 36px;
+            height: 36px;
+            display: grid;
+            place-items: center;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4f6ef7, #7c3aed);
+            font-weight: 800;
+            font-size: 16px;
+        }
+        .brand .name { font-size: 15px; font-weight: 700; letter-spacing: 1px; }
+        .brand .sub { display: block; font-size: 11px; color: #7283a3; font-weight: 400; }
+        .nav { flex: 1; padding: 14px 12px; overflow-y: auto; }
+        .nav a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 13px;
+            margin-bottom: 4px;
+            color: var(--sidebar-text);
+            text-decoration: none;
+            font-size: 14px;
+            border-radius: 10px;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .nav a .ico { width: 20px; text-align: center; }
+        .nav a:hover { background: rgba(255,255,255,0.07); color: #ffffff; }
+        .nav a.active { background: linear-gradient(90deg, rgba(79,110,247,0.95), rgba(105,87,245,0.85)); color: #ffffff; box-shadow: 0 8px 18px rgba(79,110,247,0.35); }
+        .logout { padding: 15px 16px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .logout button {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.12);
+            color: #cfd8ee;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.15s ease;
+        }
+        .logout button:hover { background: rgba(255,255,255,0.12); color: #ffffff; }
+        .content { flex: 1; padding: 28px; min-width: 0; }
+        .page-head {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .page-head h1 { margin: 0; font-size: 24px; letter-spacing: 0.5px; }
+        .page-head p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 22px;
+            margin-bottom: 20px;
+        }
+        .card.compact { padding: 16px; }
+        h1 { margin-top: 0; font-size: 22px; }
+        h2 { font-size: 16px; margin: 0 0 12px; font-weight: 700; }
+        .flash {
+            padding: 12px 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .flash.success { background: var(--success-soft); color: #15803d; border: 1px solid #bbf7d0; }
+        .flash.error { background: var(--danger-soft); color: #b91c1c; border: 1px solid #fecaca; }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 9px 16px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 9px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.15s ease, box-shadow 0.15s ease, transform 0.05s ease;
+            border: 1px solid transparent;
+        }
+        .btn:hover { background: var(--primary-dark); box-shadow: 0 8px 16px rgba(79,110,247,0.25); }
+        .btn:active { transform: translateY(1px); }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn.danger { background: var(--danger); }
+        .btn.danger:hover { background: #b91c1c; box-shadow: 0 8px 16px rgba(220,38,38,0.22); }
+        .btn.success { background: var(--success); }
+        .btn.success:hover { background: #15803d; }
+        .btn.secondary { background: #eef2f7; color: #333; }
+        .btn.secondary:hover { background: #e0e6ef; box-shadow: none; }
+        .btn.small { padding: 6px 11px; font-size: 13px; }
+        .btn.block { width: 100%; }
+        label { display: block; margin-bottom: 6px; font-size: 13px; color: #55606e; font-weight: 600; }
+        input[type="text"], input[type="password"], input[type="time"], textarea, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #dbe2ec;
+            border-radius: 9px;
+            margin-bottom: 12px;
+            font-family: inherit;
+            font-size: 14px;
+            background: #fbfcfe;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(79,110,247,0.14);
+            background: #fff;
+        }
+        textarea { resize: vertical; min-height: 110px; }
+        .hint { color: var(--muted); font-size: 13px; margin-top: 6px; }
+        .mono { font-family: "SFMono-Regular", Consolas, Menlo, monospace; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td {
+            text-align: left;
+            padding: 12px 11px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+            vertical-align: top;
+        }
+        th { background: #f8fafd; color: #5b6575; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        tbody tr:hover { background: #fafbfe; }
+        pre {
+            background: #0f172a;
+            color: #d7e1f4;
+            padding: 16px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 12.5px;
+            border-radius: 11px;
+            font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+            line-height: 1.6;
+        }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.5;
+        }
+        .badge.success { background: var(--success-soft); color: #15803d; }
+        .badge.danger { background: var(--danger-soft); color: #b91c1c; }
+        .badge.warning { background: var(--warning-soft); color: #b45309; }
+        .badge.info { background: var(--info-soft); color: #0369a1; }
+        .badge.muted { background: #eef2f7; color: #5b6575; }
+        .stat {
+            display: inline-block;
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--primary);
+        }
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .form-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+        .form-row > div { flex: 1; min-width: 180px; }
+        @media (max-width: 768px) {
+            .layout { flex-direction: column; }
+            .sidebar { width: 100%; height: auto; position: static; }
+            .nav { display: flex; flex-wrap: wrap; gap: 4px; }
+            .nav a { margin-bottom: 0; }
+            .brand { display: none; }
+            .content { padding: 16px; }
+        }
+    </style>
+</head>
+<body>
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">
+            <div class="logo">7M</div>
+            <div class="name">7MA 管理后台</div>
+        </div>
+        <nav class="nav">
+            <a href="/admin/accounts" class="{{ 'active' if active == 'accounts' else '' }}"><span class="ico">👤</span>账号管理</a>
+            <a href="/admin/orders" class="{{ 'active' if active == 'orders' else '' }}"><span class="ico">📦</span>订单信息</a>
+            <a href="/admin/points" class="{{ 'active' if active == 'points' else '' }}"><span class="ico">⚡</span>积分获取</a>
+            <a href="/admin/logs" class="{{ 'active' if active == 'logs' else '' }}"><span class="ico">📄</span>日志查看</a>
+            <a href="/admin/tutorials" class="{{ 'active' if active == 'tutorials' else '' }}"><span class="ico">📚</span>教程文档</a>
+            <a href="/admin/settings" class="{{ 'active' if active == 'settings' else '' }}"><span class="ico">⚙️</span>设置</a>
+        </nav>
+        <div class="logout">
+            <form action="/admin/logout" method="post">
+                <button type="submit">退出登录</button>
+            </form>
+        </div>
+    </aside>
+    <main class="content">
+        {% block content %}{% endblock %}
+    </main>
+</div>
+</body>
+</html>

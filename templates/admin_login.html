@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>7MA后台登录</title>
+    <style>
+        * { box-sizing: border-box; }
+        :root { --primary: #4f6ef7; --primary-dark: #3d58d8; }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at 20% 20%, #2c3c68, #151c2f 45%, #0e1424);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+        }
+        .login-box {
+            width: 360px;
+            background: rgba(255,255,255,0.98);
+            padding: 34px 32px 28px;
+            border-radius: 18px;
+            box-shadow: 0 22px 60px rgba(0,0,0,0.35);
+        }
+        .mark {
+            width: 52px;
+            height: 52px;
+            display: grid;
+            place-items: center;
+            margin: 0 auto 14px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #4f6ef7, #7c3aed);
+            color: #fff;
+            font-weight: 800;
+            font-size: 20px;
+            box-shadow: 0 10px 22px rgba(79,110,247,0.35);
+        }
+        h1 { margin: 0 0 6px; font-size: 21px; text-align: center; color: #1f2937; letter-spacing: 1px; }
+        .subtitle { color: #8590a0; text-align: center; margin-bottom: 22px; font-size: 13px; }
+        label { display: block; margin-bottom: 6px; font-size: 13px; color: #4b5563; font-weight: 600; }
+        input[type="password"] {
+            width: 100%;
+            padding: 11px 13px;
+            border: 1px solid #dbe2ec;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 15px;
+            background: #fbfcfe;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.14); background: #fff; }
+        button {
+            width: 100%;
+            padding: 11px;
+            background: linear-gradient(135deg, #4f6ef7, #6a5bf3);
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 700;
+            box-shadow: 0 10px 20px rgba(79,110,247,0.3);
+            transition: opacity 0.15s ease, transform 0.05s ease;
+        }
+        button:hover { opacity: 0.94; }
+        button:active { transform: translateY(1px); }
+        .hint-box {
+            background: #f1f4f9;
+            border: 1px solid #e2e8f0;
+            color: #4b5563;
+            padding: 9px 12px;
+            border-radius: 9px;
+            margin-bottom: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .hint-box code { background: #e6ebf5; padding: 1px 5px; border-radius: 5px; color: #334155; word-break: break-all; }
+        .reset-hint { font-size: 12.5px; color: #6b7280; }
+        .error {
+            background: #fdeaea;
+            color: #b91c1c;
+            border: 1px solid #fecaca;
+            padding: 10px 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 13px;
+        }
+        .back { text-align: center; margin-top: 16px; font-size: 13px; }
+        .back a { color: #6b7ca3; text-decoration: none; }
+        .back a:hover { color: var(--primary); }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <div class="mark">7M</div>
+        <h1>7MA 管理后台</h1>
+        <div class="subtitle">请输入管理员密码登录</div>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        {% if is_default %}
+        <div class="hint-box">默认密码：<code>{{ default_password }}</code></div>
+        {% endif %}
+        <form action="/admin/login" method="post" autocomplete="off">
+            <label for="password">密码</label>
+            <input type="password" id="password" name="password" required autofocus>
+            <button type="submit">登录</button>
+        </form>
+        <div class="hint-box reset-hint">忘记密码？SSH 登录服务器后运行：<code>python reset_password.py 新密码</code></div>
+        <div class="back"><a href="/">返回用车页面</a></div>
+    </div>
+</body>
+</html>

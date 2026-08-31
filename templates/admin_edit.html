@@ -1,0 +1,20 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>编辑 Authorization</h1>
+    <p>修改第 {{ index + 1 }} 个 Authorization（当前：<span class="mono">{{ masked }}</span>）。请输入完整 Bearer token。</p>
+    <p style="margin-top:8px;"><a href="/admin/accounts">&larr; 返回账号管理</a></p>
+</div>
+
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <form action="/admin/edit/{{ index }}" method="post">
+        <label for="authorization">Authorization</label>
+        <textarea id="authorization" name="authorization" class="mono" style="min-height:140px;">{{ full }}</textarea>
+        <button type="submit" class="btn success">保存修改</button>
+    </form>
+</div>
+{% endblock %}

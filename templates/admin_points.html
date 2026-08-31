@@ -1,0 +1,274 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>积分获取</h1>
+    <p>为每个账号执行 7MA 每日签到与看广告任务：签到 +1，签到后看广告 +7，普通广告最多 10 次 +10，每日合计约 18 积分。</p>
+    <p>骑行卡兑换：每 188 积分兑换 1 张 3 次骑行卡。</p>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;">
+        <h2 style="margin:0;">账户列表（{{ accounts|length }} 个）</h2>
+        {% if accounts %}
+        <div class="toolbar">
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#55606e;">
+                <input type="checkbox" id="selectAll"> 全选
+            </label>
+            <span id="selectedCount" class="hint" style="margin:0;">未选择</span>
+            <form id="batchRunForm" action="/admin/points/batch/run" method="post" style="display:inline-block;">
+                <input type="hidden" name="selected" id="batchRunSelected">
+                <button type="submit" class="btn">批量运行</button>
+            </form>
+            <form id="batchExchangeForm" action="/admin/points/batch/exchange" method="post" style="display:inline-block;">
+                <input type="hidden" name="selected" id="batchExchangeSelected">
+                <button type="submit" class="btn success">批量自动兑换</button>
+            </form>
+            <button type="button" class="btn warning" onclick="openBatchSchedule()">批量定时运行</button>
+        </div>
+        {% endif %}
+    </div>
+    <div class="hint" style="margin-bottom:12px;">点击账户的「开启定时」按钮可选择该账户每日自动运行时间。</div>
+    {% if accounts %}
+    <div style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th style="width:40px;">选择</th>
+                <th>账号</th>
+                <th>姓名</th>
+                <th>学校</th>
+                <th>手机号</th>
+                <th>注册时间</th>
+                <th>ID</th>
+                <th>信用积分</th>
+                <th>当前积分</th>
+                <th>下次自动运行</th>
+                <th>待完成任务</th>
+                <th style="width:210px;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for account in accounts %}
+            <tr>
+                <td><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
+                <td style="word-break:break-word;">
+                    <div class="mono" style="font-size:12px;">{{ account.masked }}</div>
+                    {% if not account.info.ok %}
+                    <div style="color:#dc2626;font-size:12px;">{{ account.info.error }}</div>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;">{{ account.info.username or '—' if account.info.ok else '—' }}</td>
+                <td style="font-size:13px;">{{ account.info.school_name or '—' if account.info.ok else '—' }}</td>
+                <td style="font-size:13px;white-space:nowrap;">{{ account.info.show_phone or '—' if account.info.ok else '—' }}</td>
+                <td style="font-size:12px;white-space:nowrap;">{{ account.info.register_time or '—' if account.info.ok else '—' }}</td>
+                <td style="font-size:13px;">{{ account.info.user_id or '—' if account.info.ok else '—' }}</td>
+                <td style="font-size:13px;">
+                    {% if account.credit and account.credit.ok %}
+                    <div>{{ account.credit.credit_scores if account.credit.credit_scores is not none else '—' }}</div>
+                    {% if account.credit.update_time %}<div style="color:#7c8894;font-size:12px;">{{ account.credit.update_time }}</div>{% endif %}
+                    {% else %}
+                    —
+                    {% endif %}
+                </td>
+                <td style="text-align:center;">
+                    {% if account.info.ok and account.info.points is not none %}
+                    <div class="stat">{{ account.info.points }}</div>
+                    {% else %}
+                    <span style="color:#9aa3af;">-</span>
+                    {% endif %}
+                    {% if account.last_gain is not none %}
+                    <div class="badge success" style="margin-top:6px;">上次 +{{ account.last_gain }}</div>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;white-space:nowrap;">
+                    {% if account.scheduled and account.next_run %}
+                    <span>{{ account.next_run }}</span>
+                    {% else %}
+                    <span style="color:#9aa3af;">未开启</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;min-width:180px;">
+                    {% for task in account.tasks %}
+                    <div style="padding:3px 0;">
+                        <span>{{ task.name }}</span>
+                        {% if task.estimate %}
+                        <span style="color:#7c8894;">(+{{ task.estimate }})</span>
+                        {% endif %}
+                        {% if task.status == 'done' %}
+                        <span class="badge success">已完成</span>
+                        {% elif task.status == 'partial' %}
+                        <span class="badge info">部分完成</span>
+                        {% elif task.status == 'watched' %}
+                        <span class="badge muted">已处理</span>
+                        {% elif task.status == 'skipped' %}
+                        <span class="badge muted">已跳过</span>
+                        {% elif task.status == 'failed' %}
+                        <span class="badge danger">失败</span>
+                        {% else %}
+                        <span class="badge warning">待完成</span>
+                        {% endif %}
+                        {% if task.detail %}
+                        <span style="color:#7c8894;">· {{ task.detail }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </td>
+                <td style="white-space:nowrap;">
+                    <a href="/admin/points/log/{{ account.index }}" class="btn small secondary" style="display:block;margin-bottom:8px;">查看日志</a>
+                    <form action="/admin/points/run/{{ account.index }}" method="post" style="display:block;margin-bottom:8px;">
+                        <button type="submit" class="btn small">立即运行</button>
+                    </form>
+                    <form action="/admin/points/exchange/{{ account.index }}" method="post" style="display:block;margin-bottom:8px;" onsubmit="return confirm('确认自动兑换？每 188 积分兑换 1 张 3 次骑行卡。');">
+                        <button type="submit" class="btn small">自动兑换</button>
+                    </form>
+                    {% if account.scheduled %}
+                    <div style="font-size:12px;color:#7c8894;margin-bottom:6px;">每日 {{ account.schedule_time }}</div>
+                    <form action="/admin/points/schedule/{{ account.index }}" method="post" style="display:block;">
+                        <input type="hidden" name="enabled" value="0">
+                        <button type="submit" class="btn small danger">关闭定时</button>
+                    </form>
+                    {% else %}
+                    <button type="button" class="btn small" onclick="openSchedule({{ account.index }}, '{{ account.schedule_time or '08:10' }}')">开启定时</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    <div class="hint" style="margin-top:10px;"><a href="/admin/points?refresh=1" style="color:#007bff;">刷新账户积分</a></div>
+    {% else %}
+    <div class="hint">暂无账户，请先在「账号管理」中添加 Authorization。</div>
+    {% endif %}
+</div>
+
+<!-- 开启定时弹窗 -->
+<div class="modal-overlay" id="scheduleModal">
+    <div class="modal" style="width:380px;">
+        <div class="modal-head">
+            <h3>开启定时自动运行</h3>
+            <button type="button" class="modal-close" onclick="closeSchedule()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="scheduleForm" method="post" action="">
+                <input type="hidden" name="enabled" value="1">
+                <label for="run_time">自动运行时间</label>
+                <input type="time" id="run_time" name="run_time" required>
+                <button type="submit" class="btn block success">保存并开启</button>
+            </form>
+            <div class="hint">保存后，系统会在每天该时间自动执行该账户的积分任务。</div>
+        </div>
+    </div>
+</div>
+
+<!-- 批量定时运行弹窗 -->
+<div class="modal-overlay" id="batchScheduleModal">
+    <div class="modal" style="width:380px;">
+        <div class="modal-head">
+            <h3>批量定时运行</h3>
+            <button type="button" class="modal-close" onclick="closeBatchSchedule()">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="batchScheduleForm" method="post" action="/admin/points/batch/schedule">
+                <input type="hidden" name="selected" id="batchScheduleSelected">
+                <label for="batch_run_time">自动运行时间</label>
+                <input type="time" id="batch_run_time" name="run_time" required>
+                <button type="submit" class="btn block success">批量开启定时</button>
+            </form>
+            <div class="hint">为勾选的账号统一设置每日自动运行时间，逐账号处理，账号间随机等待几秒。</div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: 380px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e8edf5; }
+    .modal-head h3 { margin: 0; font-size: 17px; }
+    .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
+    .modal-close:hover { background: #e0e6ef; }
+    .modal-body { padding: 18px 20px; }
+</style>
+
+<script>
+    function openSchedule(index, time) {
+        document.getElementById('scheduleForm').action = '/admin/points/schedule/' + index;
+        document.getElementById('run_time').value = time || '08:10';
+        document.getElementById('scheduleModal').classList.add('open');
+    }
+    function closeSchedule() {
+        document.getElementById('scheduleModal').classList.remove('open');
+    }
+    document.getElementById('scheduleModal').addEventListener('click', function (e) {
+        if (e.target === this) closeSchedule();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeSchedule();
+    });
+
+    var selectAll = document.getElementById('selectAll');
+    var rowSelects = function () { return Array.prototype.slice.call(document.querySelectorAll('.row-select')); };
+    function getSelected() {
+        return rowSelects().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+    }
+    function updateCount() {
+        var countEl = document.getElementById('selectedCount');
+        if (!countEl) return;
+        var checked = getSelected();
+        countEl.textContent = checked.length ? '已选 ' + checked.length + ' 个' : '未选择';
+        if (selectAll) {
+            var all = rowSelects();
+            selectAll.checked = all.length > 0 && checked.length === all.length;
+            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+        }
+    }
+    if (selectAll) {
+        selectAll.addEventListener('change', function () {
+            rowSelects().forEach(function (c) { c.checked = selectAll.checked; });
+            updateCount();
+        });
+    }
+    rowSelects().forEach(function (c) { c.addEventListener('change', updateCount); });
+    function prepBatch(e, hiddenId, confirmText) {
+        var vals = getSelected();
+        if (!vals.length) {
+            e.preventDefault();
+            alert('请先勾选要进行批量操作的账户');
+            return false;
+        }
+        document.getElementById(hiddenId).value = vals.join(',');
+        if (!confirm(confirmText)) e.preventDefault();
+    }
+    var batchRunForm = document.getElementById('batchRunForm');
+    if (batchRunForm) batchRunForm.addEventListener('submit', function (e) {
+        prepBatch(e, 'batchRunSelected', '确认对选中的 ' + getSelected().length + ' 个账号执行批量运行？');
+    });
+    var batchExchangeForm = document.getElementById('batchExchangeForm');
+    if (batchExchangeForm) batchExchangeForm.addEventListener('submit', function (e) {
+        prepBatch(e, 'batchExchangeSelected', '确认对选中的 ' + getSelected().length + ' 个账号执行批量自动兑换？');
+    });
+    function openBatchSchedule() {
+        document.getElementById('batch_run_time').value = '08:10';
+        document.getElementById('batchScheduleModal').classList.add('open');
+    }
+    function closeBatchSchedule() {
+        document.getElementById('batchScheduleModal').classList.remove('open');
+    }
+    document.getElementById('batchScheduleModal').addEventListener('click', function (e) {
+        if (e.target === this) closeBatchSchedule();
+    });
+    var batchScheduleForm = document.getElementById('batchScheduleForm');
+    if (batchScheduleForm) batchScheduleForm.addEventListener('submit', function (e) {
+        prepBatch(e, 'batchScheduleSelected', '确认对选中的 ' + getSelected().length + ' 个账号批量开启定时运行？');
+    });
+    updateCount();
+</script>
+{% endblock %}

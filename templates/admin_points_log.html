@@ -1,0 +1,72 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>积分任务日志</h1>
+    <p>账号：<span class="mono">{{ masked }}</span></p>
+    <p style="margin-top:8px;"><a href="/admin/points">&larr; 返回积分获取</a></p>
+</div>
+
+<div class="card">
+    <h2>最近一次运行</h2>
+    {% if last_run.time %}
+    <div style="font-size:14px;margin-bottom:8px;">
+        运行时间：{{ last_run.time }}
+        {% if last_run.ok %}
+        <span class="badge success">成功</span> 本次获得 <strong>{{ last_run.total_gain }}</strong> 积分
+        {% else %}
+        <span class="badge danger">失败</span>
+        {% endif %}
+    </div>
+    {% if last_run.error %}
+    <div style="color:#dc2626;font-size:13px;margin-bottom:10px;">错误：{{ last_run.error }}</div>
+    {% endif %}
+    {% if last_run.tasks %}
+    <table>
+        <thead>
+            <tr>
+                <th>任务</th>
+                <th>状态</th>
+                <th>获得积分</th>
+                <th>详情</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for task in last_run.tasks %}
+            <tr>
+                <td>{{ task.name }}</td>
+                <td>
+                    {% if task.status == 'done' %}
+                    <span class="badge success">已完成</span>
+                    {% elif task.status == 'partial' %}
+                    <span class="badge info">部分完成</span>
+                    {% elif task.status == 'watched' %}
+                    <span class="badge muted">已处理</span>
+                    {% elif task.status == 'skipped' %}
+                    <span class="badge muted">已跳过</span>
+                    {% elif task.status == 'failed' %}
+                    <span class="badge danger">失败</span>
+                    {% else %}
+                    <span class="badge warning">待完成</span>
+                    {% endif %}
+                </td>
+                <td>{{ task.gain if task.gain is not none else '—' }}</td>
+                <td style="font-size:13px;">{{ task.detail or '' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% else %}
+    <div class="hint">暂无运行记录，请先在账户列表点击「立即运行」。</div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>调度器日志（该账号）</h2>
+    {% if log_lines %}
+    <pre>{{ log_lines | join('\n') }}</pre>
+    {% else %}
+    <div class="hint">暂无该账号的定时调度日志。</div>
+    {% endif %}
+</div>
+{% endblock %}

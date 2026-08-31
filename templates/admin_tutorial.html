@@ -1,0 +1,127 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>教程文档</h1>
+    <p>选择通知渠道后，在 <a href="/admin/settings">设置 → 通知渠道</a> 中填写对应配置即可。以下为各渠道的接入教程与官方文档。</p>
+</div>
+
+<div class="grid">
+    <div class="tutorial card">
+        <div class="t-head"><h2>🛰️ Telegram</h2><a class="btn small secondary" href="https://core.telegram.org/bots/api" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>在 Telegram 中搜索 <span class="mono">@BotFather</span>，发送 <span class="mono">/newbot</span> 创建机器人。</li>
+            <li>复制 <span class="mono">Bot Token</span> 填入设置页。</li>
+            <li>给机器人发一条消息，然后访问 <span class="mono">https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</span> 获取 Chat ID。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>📌 钉钉</h2><a class="btn small secondary" href="https://open.dingtalk.com/document/robots/custom-robot-access" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>打开钉钉群 → 群设置 → 智能群助手 → 添加机器人 → 自定义。</li>
+            <li>安全设置可选择「加签」，将生成的密钥填入 <span class="mono">Secret</span>。</li>
+            <li>复制 Webhook 地址填入设置页。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>💼 企业微信</h2><a class="btn small secondary" href="https://developer.work.weixin.qq.com/document/path/91770" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>在企业微信群中添加「群机器人」。</li>
+            <li>复制机器人 Webhook 地址。</li>
+            <li>粘贴到设置页 Webhook 输入框并保存。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🕊️ 飞书</h2><a class="btn small secondary" href="https://open.feishu.cn/document/client-docs/bot-v3/add-custom-bot" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>在飞书群中添加「群机器人」→「自定义机器人」。</li>
+            <li>复制 Webhook 地址。</li>
+            <li>粘贴到设置页 Webhook 输入框并保存。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🍟 Server酱</h2><a class="btn small secondary" href="https://sct.ftqq.com" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>打开 Server酱 Turbo 官网，使用微信扫码登录。</li>
+            <li>在「SendKey」页面复制你的 SendKey。</li>
+            <li>填入设置页并保存。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>➕ PushPlus</h2><a class="btn small secondary" href="https://www.pushplus.plus" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>打开 PushPlus 官网，微信扫码登录。</li>
+            <li>复制个人 Token。</li>
+            <li>如需指定群组，可填写群组编码 Topic（可选）。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🍎 Bark</h2><a class="btn small secondary" href="https://bark.day.app" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>在 iOS 设备安装 Bark，复制应用内 Key。</li>
+            <li>默认使用官方服务器；自建服务器则填写服务器地址。</li>
+            <li>填入设置页并保存。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🤖 QQ 机器人</h2><a class="btn small secondary" href="https://napneko.github.io/zh-CN/develop/before" target="_blank" rel="noopener">NapCat/OneBot 文档</a></div>
+        <ol>
+            <li>部署 OneBot 兼容框架（如 NapCat、go-cqhttp 等）。</li>
+            <li>填写其 HTTP API 地址（如 <span class="mono">http://127.0.0.1:3000</span>）。</li>
+            <li>选择私聊或群聊，填写对应的 QQ 号或群号。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🔔 ntfy</h2><a class="btn small secondary" href="https://docs.ntfy.sh" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>使用官方服务或自建 ntfy 服务器。</li>
+            <li>自定义一个 Topic 名称。</li>
+            <li>如服务开启了鉴权，填写 Token（可选）。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>📬 Gotify</h2><a class="btn small secondary" href="https://gotify.net/docs" target="_blank" rel="noopener">官方文档</a></div>
+        <ol>
+            <li>部署 Gotify 服务器。</li>
+            <li>创建应用并复制应用 Token。</li>
+            <li>填写服务器地址与 Token 并保存。</li>
+        </ol>
+    </div>
+
+    <div class="tutorial card">
+        <div class="t-head"><h2>🔗 自定义 Webhook</h2><a class="btn small secondary" href="#custom-body">查看请求格式</a></div>
+        <ol>
+            <li>填写你自己的 Webhook URL。</li>
+            <li>本服务会以 <span class="mono">POST</span> 提交 JSON。</li>
+            <li>请求体格式见下方说明。</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card" id="custom-body">
+    <h2>自定义 Webhook 请求体格式</h2>
+    <p class="hint">收到通知时，会向目标 URL 发送如下 JSON：</p>
+    <pre>{
+  "title": "标题",
+  "content": "内容",
+  "text": "标题\n内容"
+}</pre>
+</div>
+
+<style>
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .tutorial { margin-bottom: 0; }
+    .t-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+    .t-head h2 { margin: 0; }
+    .tutorial ol { margin: 0; padding-left: 20px; color: #445066; }
+    .tutorial li { margin-bottom: 6px; }
+</style>
+{% endblock %}

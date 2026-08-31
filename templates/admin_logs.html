@@ -1,0 +1,116 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>日志查看</h1>
+    <p>查看 <code>logs/</code> 目录下的日志文件，显示每个文件最后 500 行。</p>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <h2>日志文件</h2>
+    {% if files %}
+    <div style="overflow-x:auto;">
+    <table>
+        <thead>
+            <tr>
+                <th>文件名</th>
+                <th style="width:110px;">类型</th>
+                <th>大小</th>
+                <th>修改时间</th>
+                <th style="width:190px;text-align:right;">操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for file in files %}
+            <tr>
+                <td style="font-family:Consolas,Menlo,monospace;font-size:13px;word-break:break-all;">
+                    <a href="javascript:void(0)" onclick="openLog('{{ file.name }}')" style="color:#007bff;">{{ file.name }}</a>
+                </td>
+                <td>
+                    {% if file.type == '下订单' %}<span class="badge success">下订单</span>
+                    {% elif file.type == '还车' %}<span class="badge info">还车</span>
+                    {% elif file.type == '积分任务' %}<span class="badge warning">积分任务</span>
+                    {% elif file.type == '手机登录' %}<span class="badge info">手机登录</span>
+                    {% elif file.type == '服务错误' %}<span class="badge danger">服务错误</span>
+                    {% elif file.type == '服务输出' %}<span class="badge muted">服务输出</span>
+                    {% else %}<span class="badge muted">其他</span>
+                    {% endif %}
+                </td>
+                <td style="font-size:13px;">{{ file.size }} 字节</td>
+                <td style="font-size:13px;white-space:nowrap;">{{ file.mtime }}</td>
+                <td style="white-space:nowrap;text-align:right;">
+                    <button type="button" class="btn small secondary" onclick="openLog('{{ file.name }}')">查看日志</button>
+                    <form action="/admin/logs/delete" method="post" onsubmit="return confirm('确认删除该日志文件？');" style="display:inline;">
+                        <input type="hidden" name="file" value="{{ file.name }}">
+                        <button type="submit" class="btn small danger">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="hint">暂无日志文件。</div>
+    {% endif %}
+</div>
+
+<!-- 日志内容弹窗 -->
+<div class="modal-overlay" id="logModal">
+    <div class="modal" style="width:860px;">
+        <div class="modal-head">
+            <h3 id="logModalTitle">日志内容</h3>
+            <button type="button" class="modal-close" onclick="closeLog()">×</button>
+        </div>
+        <div class="modal-body" style="padding:0;">
+            <pre id="logModalBody" style="margin:0;border-radius:0;min-height:300px;max-height:70vh;overflow:auto;">加载中...</pre>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal { width: 860px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e8edf5; }
+    .modal-head h3 { margin: 0; font-size: 16px; font-family: Consolas, Menlo, monospace; word-break: break-all; }
+    .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
+    .modal-close:hover { background: #e0e6ef; }
+    .modal-body { padding: 18px 20px; }
+</style>
+
+<script>
+    function openLog(filename) {
+        document.getElementById('logModalTitle').textContent = filename;
+        document.getElementById('logModalBody').textContent = '加载中...';
+        document.getElementById('logModal').classList.add('open');
+        fetch('/admin/logs/content/' + encodeURIComponent(filename), { headers: { 'Accept': 'application/json' } })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (data.ok) {
+                    document.getElementById('logModalBody').textContent = data.content || '（空文件）';
+                } else {
+                    document.getElementById('logModalBody').textContent = data.error || '无法读取日志';
+                }
+            })
+            .catch(function (err) {
+                document.getElementById('logModalBody').textContent = '读取日志失败：' + err;
+            });
+    }
+    function closeLog() {
+        document.getElementById('logModal').classList.remove('open');
+    }
+    document.getElementById('logModal').addEventListener('click', function (e) {
+        if (e.target === this) closeLog();
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeLog();
+    });
+</script>
+{% endblock %}

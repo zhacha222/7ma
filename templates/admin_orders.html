@@ -1,0 +1,243 @@
+{% extends 'admin_base.html' %}
+{% block content %}
+<div class="card">
+    <h1>订单信息</h1>
+    <p>从 <code>logs/order_*.log</code> 中解析的订单记录，支持按列筛选和排序。</p>
+</div>
+
+{% if message %}
+<div class="flash success">{{ message }}</div>
+{% endif %}
+{% if error %}
+<div class="flash error">{{ error }}</div>
+{% endif %}
+
+<div class="card">
+    <div class="toolbar" style="margin-bottom:14px;justify-content:space-between;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <strong style="font-size:14px;">订单记录</strong>
+            <span id="resultCount" class="badge muted">共 {{ orders|length }} 条</span>
+        </div>
+        <button type="button" class="btn small secondary" onclick="resetFilters()">重置筛选</button>
+    </div>
+
+    {% if orders %}
+    <div style="overflow-x:auto;">
+    <table id="ordersTable" class="orders-table">
+        <thead>
+            <tr>
+                <th data-col="time">
+                    <div class="th-row"><span>下单时间</span><button type="button" class="sort-btn" data-col="time" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="time" placeholder="例如 2026-08-31">
+                </th>
+                <th data-col="account">
+                    <div class="th-row"><span>下单账号</span><button type="button" class="sort-btn" data-col="account" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="account" placeholder="例如 账号1">
+                </th>
+                <th data-col="status">
+                    <div class="th-row"><span>状态</span><button type="button" class="sort-btn" data-col="status" title="点击排序">⇅</button></div>
+                    <select class="filter-input filter-select" data-col="status">
+                        <option value="">全部</option>
+                        <option value="成功">成功</option>
+                        <option value="失败">失败</option>
+                        <option value="信息">信息</option>
+                    </select>
+                </th>
+                <th data-col="bike">
+                    <div class="th-row"><span>车辆编号</span><button type="button" class="sort-btn" data-col="bike" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="bike" placeholder="输入编号">
+                </th>
+                <th data-col="op">
+                    <div class="th-row"><span>操作类型</span><button type="button" class="sort-btn" data-col="op" title="点击排序">⇅</button></div>
+                    <select class="filter-input filter-select" data-col="op">
+                        <option value="">全部</option>
+                        {% for op in op_types %}
+                        <option value="{{ op }}">{{ op }}</option>
+                        {% endfor %}
+                    </select>
+                </th>
+                <th data-col="detail">
+                    <div class="th-row"><span>订单详情</span><button type="button" class="sort-btn" data-col="detail" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="detail" placeholder="搜索详情">
+                </th>
+                <th style="width:80px;"><span>操作</span></th>
+            </tr>
+        </thead>
+        <tbody id="ordersBody">
+            {% for order in orders %}
+            <tr data-time="{{ order.time }}" data-account="{{ order.account_label }}" data-account-num="{{ order.auth_index or '' }}" data-status="{{ order.status }}" data-status-rank="{{ order.status_rank }}" data-bike="{{ order.bike }}" data-op="{{ order.op_type }}" data-detail="{{ order.detail }}">
+                <td style="white-space:nowrap;">{{ order.time }}</td>
+                <td>{{ order.account_label }}</td>
+                <td>
+                    {% if order.status == '成功' %}
+                    <span class="badge success">成功</span>
+                    {% elif order.status == '失败' %}
+                    <span class="badge danger">失败</span>
+                    {% else %}
+                    <span class="badge muted">信息</span>
+                    {% endif %}
+                </td>
+                <td>{{ order.bike }}</td>
+                <td><span class="badge info">{{ order.op_type }}</span></td>
+                <td style="font-size:13px;color:#445066;">{{ order.detail }}</td>
+                <td style="white-space:nowrap;">
+                    <form action="/admin/orders/delete" method="post" onsubmit="return confirm('确认删除该订单记录？');">
+                        <input type="hidden" name="file" value="{{ order.file }}">
+                        <input type="hidden" name="line" value="{{ order.raw }}">
+                        <button type="submit" class="btn small danger">删除</button>
+                    </form>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% else %}
+    <div class="hint">暂无订单记录。</div>
+    {% endif %}
+</div>
+
+<style>
+    .orders-table { min-width: 1080px; }
+    .orders-table th { padding: 10px 11px; vertical-align: top; }
+    .th-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; margin-bottom: 6px; white-space: nowrap; }
+    .sort-btn {
+        border: none;
+        background: #eef2f7;
+        color: #5b6575;
+        width: 26px;
+        height: 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .sort-btn:hover { background: #dfe6ef; }
+    .sort-btn.active { background: var(--primary); color: #fff; }
+    .filter-input {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 12.5px;
+        background: #fbfcfe;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        margin: 0;
+        min-width: 110px;
+    }
+    .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); background: #fff; }
+    .filter-select { appearance: auto; }
+    .orders-table tbody tr.hidden { display: none; }
+</style>
+
+<script>
+    var sortCol = 'time';
+    var sortDir = 'desc'; // 默认按下单时间倒序
+    var tbody = document.getElementById('ordersBody');
+    var resultCount = document.getElementById('resultCount');
+
+    function getRows() {
+        return Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    }
+
+    function readFilters() {
+        var filters = {};
+        document.querySelectorAll('.filter-input').forEach(function (input) {
+            filters[input.dataset.col] = (input.value || '').trim().toLowerCase();
+        });
+        return filters;
+    }
+
+    function rowMatches(row, filters) {
+        for (var col in filters) {
+            var value = filters[col];
+            if (!value) continue;
+            var cell = row.getAttribute('data-' + col) || '';
+            if (col === 'status' || col === 'op') {
+                if (cell !== filters[col]) return false;
+            } else if (cell.toLowerCase().indexOf(value) === -1) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function sortRows(rows) {
+        rows.sort(function (a, b) {
+            var result;
+            if (sortCol === 'account') {
+                var an = parseInt(a.getAttribute('data-account-num') || '-1', 10);
+                var bn = parseInt(b.getAttribute('data-account-num') || '-1', 10);
+                result = an - bn;
+            } else if (sortCol === 'status') {
+                result = (parseInt(a.getAttribute('data-status-rank') || '0', 10)) - (parseInt(b.getAttribute('data-status-rank') || '0', 10));
+            } else {
+                var av = a.getAttribute('data-' + sortCol) || '';
+                var bv = b.getAttribute('data-' + sortCol) || '';
+                result = av.localeCompare(bv, 'zh-CN', { numeric: true });
+            }
+            return sortDir === 'asc' ? result : -result;
+        });
+        return rows;
+    }
+
+    function applyFilterSort() {
+        var filters = readFilters();
+        var rows = getRows();
+        var visible = 0;
+        rows.forEach(function (row) {
+            var match = rowMatches(row, filters);
+            row.classList.toggle('hidden', !match);
+            if (match) visible++;
+        });
+        var visibleRows = rows.filter(function (row) { return !row.classList.contains('hidden'); });
+        sortRows(visibleRows).forEach(function (row) { tbody.appendChild(row); });
+        resultCount.textContent = '共 ' + visible + ' 条';
+    }
+
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+        input.addEventListener('input', applyFilterSort);
+        input.addEventListener('change', applyFilterSort);
+    });
+
+    document.querySelectorAll('.sort-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var col = btn.dataset.col;
+            if (sortCol === col) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortCol = col;
+                sortDir = 'desc';
+            }
+            document.querySelectorAll('.sort-btn').forEach(function (b) {
+                var arrow = '⇅';
+                if (b.dataset.col === sortCol) {
+                    arrow = sortDir === 'asc' ? '▲' : '▼';
+                    b.classList.add('active');
+                } else {
+                    b.classList.remove('active');
+                }
+                b.textContent = arrow;
+            });
+            applyFilterSort();
+        });
+    });
+
+    function resetFilters() {
+        document.querySelectorAll('.filter-input').forEach(function (input) { input.value = ''; });
+        sortCol = 'time';
+        sortDir = 'desc';
+        document.querySelectorAll('.sort-btn').forEach(function (b) {
+            b.textContent = '⇅';
+            b.classList.remove('active');
+            if (b.dataset.col === 'time') { b.textContent = '▼'; b.classList.add('active'); }
+        });
+        applyFilterSort();
+    }
+
+    // 初始化排序按钮箭头（默认时间倒序）
+    document.querySelectorAll('.sort-btn').forEach(function (b) {
+        if (b.dataset.col === 'time') { b.textContent = '▼'; b.classList.add('active'); }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends layout %}
+{% block content %}
+<div class="card">
+    <h1>手机号登录获取 Authorization</h1>
+    <p>通过手机号 + 短信验证码登录，成功后将 Authorization 自动添加到账号管理。</p>
+</div>
+
+<div class="card">
+    <h2>登录流程</h2>
+    <div style="max-width:420px;">
+        <label for="phone">手机号</label>
+        <input type="text" id="phone" placeholder="输入 11 位手机号">
+        <label for="deviceId">设备ID（可选）</label>
+        <input type="text" id="deviceId" placeholder="留空自动生成并记住；提示设备上限时填回此前成功登录过的设备ID">
+        <button type="button" class="btn" id="getCaptchaBtn">获取验证码</button>
+    </div>
+
+    <div id="captchaBox" style="display:none;max-width:420px;margin-top:16px;">
+        <div class="hint">拖动下方滑块，将拼图移动到缺口位置后松开。如果没有自动发送验证码，请打开手机上的 7MA 小程序手动发送并填写验证码。</div>
+        <div id="bgWrap" style="position:relative;width:320px;margin-top:10px;">
+            <img id="bgImg" alt="滑块背景" style="width:100%;display:block;border-radius:4px;">
+            <img id="pieceImg" alt="滑块拼图" style="position:absolute;left:0;top:0;width:44px;pointer-events:none;">
+        </div>
+        <div id="sliderTrack" style="position:relative;width:320px;height:44px;margin-top:12px;background:#e8edf5;border-radius:22px;">
+            <div id="sliderHandle" style="position:absolute;left:0;top:0;width:44px;height:44px;background:linear-gradient(135deg,#4f6ef7,#6a5bf3);border-radius:22px;cursor:pointer;touch-action:none;box-shadow:0 4px 10px rgba(79,110,247,0.35);"></div>
+        </div>
+        <div id="sliderText" class="hint" style="margin-top:8px;">按住蓝色滑块拖动</div>
+    </div>
+
+    <div id="codeBox" style="display:none;max-width:420px;margin-top:16px;">
+        <label for="code">短信验证码</label>
+        <input type="text" id="code" placeholder="输入收到的验证码">
+        <button type="button" class="btn" id="loginBtn">登录并保存 Authorization</button>
+    </div>
+
+    <div id="status" class="hint" style="margin-top:12px;"></div>
+</div>
+
+<script>
+(function () {
+    const phone = document.getElementById('phone');
+    const deviceIdInput = document.getElementById('deviceId');
+    const getCaptchaBtn = document.getElementById('getCaptchaBtn');
+    const captchaBox = document.getElementById('captchaBox');
+    const bgWrap = document.getElementById('bgWrap');
+    const bgImg = document.getElementById('bgImg');
+    const pieceImg = document.getElementById('pieceImg');
+    const sliderTrack = document.getElementById('sliderTrack');
+    const sliderHandle = document.getElementById('sliderHandle');
+    const sliderText = document.getElementById('sliderText');
+    const codeBox = document.getElementById('codeBox');
+    const codeInput = document.getElementById('code');
+    const loginBtn = document.getElementById('loginBtn');
+    const status = document.getElementById('status');
+    const wrapWidth = 320;
+
+    let bgNatural = 0;
+    let pieceNatural = 0;
+    let sliderY = 44;
+    let dragging = false;
+    let dragStart = 0;
+    let points = [];
+
+    function setStatus(text, ok) {
+        status.textContent = text || '';
+        status.style.color = ok === false ? '#dc3545' : (ok === true ? '#28a745' : '#888');
+    }
+
+    function bindSlider() {
+        sliderHandle.addEventListener('pointerdown', function (e) {
+            dragging = true;
+            dragStart = Date.now();
+            points = [];
+            sliderHandle.setPointerCapture(e.pointerId);
+            e.preventDefault();
+        });
+
+        sliderHandle.addEventListener('pointermove', function (e) {
+            if (!dragging) return;
+            const trackMax = sliderTrack.clientWidth - sliderHandle.clientWidth;
+            let left = e.clientX - sliderTrack.getBoundingClientRect().left - sliderHandle.clientWidth / 2;
+            left = Math.max(0, Math.min(trackMax, left));
+            sliderHandle.style.left = left + 'px';
+            movePiece(left, trackMax);
+            const elapsed = Date.now() - dragStart;
+            const imageX = trackMax ? Math.round((left / trackMax) * Math.max(0, bgNatural - pieceNatural)) : 0;
+            points.push({ x: Math.max(0, imageX), y: 0, t: elapsed });
+        }, { passive: true });
+
+        sliderHandle.addEventListener('pointerup', function (e) {
+            if (!dragging) return;
+            dragging = false;
+            const trackMax = sliderTrack.clientWidth - sliderHandle.clientWidth;
+            const left = parseInt(sliderTrack.style.left) || 0;
+            const leftParsed = parseFloat(sliderHandle.style.left) || 0;
+            const imageX = Math.round((leftParsed / trackMax) * Math.max(0, bgNatural - pieceNatural));
+            const duration = Date.now() - dragStart;
+            const track = points.length ? points : [{ x: 0, y: 0, t: 0 }, { x: imageX, y: 0, t: duration }];
+            sliderText.textContent = '正在验证滑块...';
+            submitVerify(imageX, track, duration);
+        });
+    }
+
+    function movePiece(left, trackMax) {
+        const ratio = trackMax ? left / trackMax : 0;
+        const imgWidth = bgWrap.clientWidth;
+        const pieceWidth = pieceNatural && bgNatural ? (pieceNatural / bgNatural) * imgWidth : pieceImg.clientWidth;
+        pieceImg.style.left = (ratio * (imgWidth - pieceWidth)) + 'px';
+    }
+
+    function submitVerify(x, track, duration) {
+        fetch('/admin/phone-login/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ x: x, track: track, duration: duration })
+        }).then(r => r.json()).then(data => {
+            if (data.ok) {
+                if (data.sms_sent) {
+                    setStatus('滑块验证成功，验证码已发送，请输入短信验证码。', true);
+                } else {
+                    setStatus('滑块验证成功。自动发送短信未完成：' + (data.message || '请手动在 App 获取验证码'), false);
+                }
+                codeBox.style.display = 'block';
+            } else {
+                setStatus('滑块验证失败：' + (data.error || '请重试'), false);
+                resetSlider();
+            }
+        }).catch(err => setStatus('滑块验证请求异常，请重试', false));
+    }
+
+    function resetSlider() {
+        sliderHandle.style.left = '0px';
+        pieceImg.style.left = '0px';
+        sliderText.textContent = '按住蓝色滑块拖动';
+    }
+
+    getCaptchaBtn.addEventListener('click', function () {
+        const value = (phone.value || '').trim();
+        if (!/^1\d{10}$/.test(value)) {
+            setStatus('请输入正确的 11 位手机号', false);
+            return;
+        }
+        setStatus('正在生成滑块验证码...');
+        getCaptchaBtn.disabled = true;
+        fetch('/admin/phone-login/captcha', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: value, device_id: (deviceIdInput.value || '').trim() })
+        }).then(r => r.json()).then(data => {
+            getCaptchaBtn.disabled = false;
+            if (!data.ok) {
+                setStatus('获取验证码失败：' + (data.error || ''), false);
+                return;
+            }
+            sliderY = data.slider_y || 44;
+            bgImg.src = data.background_img;
+            pieceImg.src = data.slider_img;
+            captchaBox.style.display = 'block';
+            codeBox.style.display = 'none';
+            setStatus('请拖动滑块完成验证');
+        }).catch(err => {
+            getCaptchaBtn.disabled = false;
+            setStatus('获取验证码请求异常，请重试', false);
+        });
+    });
+
+    function positionPiece() {
+        if (!bgNatural || !pieceNatural) return;
+        const imgWidth = bgWrap.clientWidth;
+        const imgHeight = bgImg.clientHeight || ((bgNatural ? (imgWidth / bgNatural) * bgImg.naturalHeight : 0));
+        const top = (sliderY / bgImg.naturalHeight) * imgHeight;
+        const pieceWidth = (pieceNatural / bgNatural) * imgWidth;
+        pieceImg.style.top = top + 'px';
+        pieceImg.style.width = pieceWidth + 'px';
+    }
+
+    bgImg.addEventListener('load', function () {
+        bgNatural = bgImg.naturalWidth;
+        positionPiece();
+    });
+
+    pieceImg.addEventListener('load', function () {
+        pieceNatural = pieceImg.naturalWidth;
+        positionPiece();
+        bindSlider();
+    });
+
+    loginBtn.addEventListener('click', function () {
+        const phoneValue = (phone.value || '').trim();
+        const codeValue = (codeInput.value || '').trim();
+        if (!phoneValue || !codeValue) {
+            setStatus('请输入手机号和验证码', false);
+            return;
+        }
+        loginBtn.disabled = true;
+        setStatus('正在登录...');
+        fetch('/admin/phone-login/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phoneValue, code: codeValue, device_id: (deviceIdInput.value || '').trim() })
+        }).then(r => r.json()).then(data => {
+            loginBtn.disabled = false;
+            if (data.ok) {
+                setStatus((data.message || '登录成功') + '，即将返回账号管理...', true);
+                setTimeout(function () {
+                    if (window.self !== window.top) {
+                        window.parent.location.href = '/admin/accounts';
+                    } else {
+                        window.location.href = '/admin/accounts';
+                    }
+                }, 1200);
+            } else {
+                setStatus('登录失败：' + (data.error || ''), false);
+            }
+        }).catch(err => {
+            loginBtn.disabled = false;
+            setStatus('登录请求异常，请重试', false);
+        });
+    });
+})();
+</script>
+{% endblock %}
