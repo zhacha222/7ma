@@ -1,0 +1,32 @@
+# 7MA 出行自助服务平台 v2.0.0 —— docker compose 一键部署
+# 用法：
+#   docker compose up -d --build      # 本地构建并启动
+#   docker compose up -d              # 拉取远程镜像并启动
+#   docker compose logs -f            # 查看日志
+#   docker compose down               # 停止并移除容器
+services:
+  7ma:
+    # 本地构建用（开发）：docker compose up -d --build
+    build:
+      context: .
+      dockerfile: Dockerfile
+    # 远程镜像（发布后，替换为你的镜像仓库地址）：
+    # image: your-dockerhub-name/7ma:v2.0.0
+    image: 7ma:v2.0.0
+    container_name: 7ma
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    volumes:
+      # 持久化配置（含 Authorization、设置、密码等）
+      # 如需在 host 直接编辑，可改成 ./config:/app/config
+      - 7ma_config:/app/config
+      # 持久化日志
+      - 7ma_logs:/app/logs
+    # 时区
+    environment:
+      - TZ=Asia/Shanghai
+
+volumes:
+  7ma_config:
+  7ma_logs:

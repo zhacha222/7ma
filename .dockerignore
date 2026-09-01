@@ -1,0 +1,29 @@
+# --- 版本控制 / 元数据 ---
+.git
+.gitignore
+
+# --- Python 缓存/构建产物 ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+*.egg
+.venv/
+venv/
+
+# --- 日志文件（运行时生成，且以卷挂载） ---
+logs/*
+!logs/.gitkeep
+
+# --- 桌面版 / 打包产物（不属于网站源码） ---
+launcher.py
+build/
+dist/
+*.spec
+*.exe
+
+# --- 临时/测试文件 ---
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
