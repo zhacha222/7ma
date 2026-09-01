@@ -1,6 +1,6 @@
 # 7MA 出行自助服务平台
 
-基于 Flask 的 **7MA 出行** 自动化服务平台。利用「下单开锁后立即还车、一分钟内免费」的规则，实现自动免费用车，并配套完整的管理后台：多账号管理、积分获取、认证、订单/日志监控、多渠道消息通知与远程 API。
+基于 Flask 的 **7MA 出行** 自动化服务平台。利用「下单开锁后立即还车、一分钟内免费」的规则实现自动免费用车，并配套完整管理后台：多账号管理、积分获取与自动兑换、认证、订单/日志监控、多渠道消息通知与远程 API。
 
 > ⚠️ 本项目仅供技术学习与研究。请遵守平台规则与当地法律法规，风险自负。
 
@@ -8,16 +8,16 @@
 
 ## ✨ 功能特性
 
-- **多账号并发用车**：支持导入多个 `Authorization`，自动搜索可用账号下单；账号都在骑行中时等待（最多 2 分钟）直到有账号还车后自动下单。
-- **自动还车监控**：下单开锁后，后台持续监控 60 秒，每 3 秒检测是否还有进行中订单，检测到立即还车并复核，即使还车成功也会继续监控满一分钟，防止「假性还车」导致超时扣费。
+- **多账号并发用车**：支持导入多个 `Authorization`，自动搜索可用账号下单；所有账号都在骑行中时等待（最多 2 分钟）到有账号还车后自动下单。
+- **自动还车监控**：下单开锁后，后台持续监控 60 秒、每 3 秒检测进行中订单，出现立即还车并复核，即使还车成功仍继续监控满一分钟，防止「假性还车」导致超时扣费。
 - **管理后台**（`/admin`，默认密码 `password`）：
-  - 账号管理：批量导入 / 手动添加 / 手机号登录获取授权、编辑、删除、排序、显示账户资产与认证信息、批量自动认证。
-  - 积分获取：查看每个账号的姓名、学校、手机号、注册时间、ID、信用积分、当前积分，支持运行、定时运行（可批量）、自动兑换骑行卡（188 积分 / 张）、查看日志。
-  - 订单信息：按下单时间 / 账号 / 状态 / 车辆编号 / 操作类型 / 详情展示，支持筛选与排序、删除记录。
-  - 日志查看：日志文件分类展示，弹窗查看内容、删除文件。
+  - 账号管理：批量导入 / 手动添加 / 手机号登录获取授权、编辑删除排序、账户资产与认证信息、批量自动认证。
+  - 积分获取：查看各账号姓名、学校、手机号、注册时间、ID、信用积分、当前积分，支持运行 / 定时运行（可批量）/ 自动兑换骑行卡（188 积分/张）/ 查看日志。
+  - 订单信息：按下单时间 / 账号 / 状态 / 车辆编号 / 操作类型 / 详情展示，支持筛选排序、删除记录。
+  - 日志查看：日志文件分类展示、弹窗查看内容、删除文件。
   - 设置：日志自动清理天数、API 密钥、通知渠道（多渠道绑定）、修改密码。
   - 教程文档：各通知渠道接入教程。
-- **多渠道消息通知**：支持 Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Bark、QQ Bot、ntfy、Gotify、自定义 Webhook；单个推送事件可独立开关（登录后台 / 订单及还车状态 / 积分结果及账号统计 / 添加账号），并支持「测试消息」。
+- **多渠道消息通知**：支持 Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Bark、QQ 机器人、ntfy、Gotify、自定义 Webhook；单个事件可独立开关（登录后台 / 订单及还车状态 / 积分结果及账号统计 / 添加账号），可「测试消息」。
 - **远程 API**：通过 `X-API-Key` 鉴权，提供下单与状态查询接口。
 
 ---
@@ -38,6 +38,10 @@
 ├── settings_store.py      # 后台密码、日志清理、API 密钥、通知设置持久化
 ├── maintenance.py         # 日志定期清理
 ├── reset_password.py      # 命令行重置后台密码
+├── Dockerfile             # 构建镜像（Python 3.10 + Flask）
+├── docker-compose.yml     # Docker Compose 一键编排
+├── requirements.txt       # Python 依赖锁定
+├── docker/                # 多平台构建 / 快速构建脚本与 Docker 部署文档
 ├── templates/             # 前端页面模板
 ├── config/                # 配置文件（gitignore）
 └── logs/                  # 运行日志（gitignore）
@@ -45,38 +49,150 @@
 
 ---
 
-## 🔧 快速开始
+## ⚙️ 环境要求
 
-### 1. 安装依赖
+- 源码运行：Python 3.7+（推荐 3.9+），依赖 `Flask`、`requests`。
+- Docker 部署：任意安装了 Docker 的平台（Docker Desktop / Docker Engine）。
 
-Python 3.7+ 均可（建议 3.9+），依赖：`Flask`、`requests`。
+---
 
-```bash
-pip install Flask requests
-```
+## 🚀 部署方式
 
-### 2. 准备 Authorization
+### 方式一：Windows 部署（推荐：直接使用 Release 里的 exe）
 
-抓包 `newmapi.7mate.cn` 域名下请求头的 `Authorization`（形如 `Bearer eyJ0eXAiOiJKV1Qi...`），将其写入 `config/authorizations.txt`（每行一个）：
+Windows 用户无需安装 Python，直接下载即用：
 
-```text
-Bearer eyJ0eXAiOiJKV1Qi...
-Bearer eyJ0eXAiOiJKV1Qi...
-```
+1. 到 [GitHub Releases](https://github.com/zhacha222/7ma/releases) 下载 `7MA_v2.0.0.exe`（或安卓 `7MA.apk`）。
+2. 双击 `7MA_v2.0.0.exe` 运行，服务启动后会自动打开浏览器。
+3. 访问 `http://localhost:4321`，后台 `/admin`，**默认密码 `password`**。
 
-也可以直接通过后台「账号管理 → 添加 / 导入」在线添加。
+> 桌面版已内置本地服务与定时任务，双击即用；数据保存在程序同目录下的 `config/`、`logs/`。
 
-> 💡 钱包中至少保留 1 分钱，才可正常下单。
+### 方式二：Linux 从源码运行
 
-### 3. 启动服务
+需要 Python 3.7+（推荐 3.9+）：
 
 ```bash
-python app.py
+# 1. 克隆或上传源码到服务器
+git clone https://github.com/zhacha222/7ma.git  # 或直接上传项目文件
+
+# 2. 安装依赖
+cd 项目目录
+pip install -r requirements.txt
+# 或：pip install Flask requests
+
+# 3. 启动服务
+python app.py            # 前台运行
+nohup python app.py > server.log 2>&1 &   # 后台运行
 ```
 
-访问：`http://localhost:4321`
+访问 `http://服务器IP:4321`，后台 `/admin`，**默认密码 `password`**。
 
-后台：`http://localhost:4321/admin`，**默认密码：`password`**（登录后可在「设置 → 修改密码」中更改）。
+> 建议使用 systemd / supervisor 托管进程，保证长期在线，并放行 4321 端口。
+
+### 方式三：自行从源码构建 Docker 镜像
+
+适合想自定义 / 离线构建的场景：
+
+```bash
+cd 项目目录
+
+# 只构建本机架构
+docker build -t 7ma:v2.0.0 .
+
+# 多平台镜像（amd64 / arm64 / arm/v7），一行生成并推送
+docker login
+./docker/build-multiarch.sh zhacha222/7ma:v2.0.0     # Linux/macOS
+.\docker\build-multiarch.ps1 zhacha222/7ma:v2.0.0    # Windows PowerShell
+```
+
+> 离线 / 无网络时，先在有网络机器上 `docker pull python:3.10-slim` 备好，再内网构建。
+
+### 方式四：Docker 一键部署（直接拉取已发布镜像）
+
+只需一台装有 Docker 的机器（任选一种）：
+
+```bash
+# docker run 方式
+docker run -d --name 7ma -p 4321:4321 \
+  -v 7ma_config:/app/config \
+  -v 7ma_logs:/app/logs \
+  --restart unless-stopped \
+  zhacha222/7ma:v2.0.0
+```
+
+访问 `http://服务器IP:4321`，后台 `/admin`，**默认密码 `password`**。
+
+### 方式五：Docker Compose 部署（推荐，含数据卷编排）
+
+在任意机器上，把本项目 `docker-compose.yml` 放到一个空目录（`image` 已指向 `zhacha222/7ma:v2.0.0`）：
+
+```bash
+docker compose up -d          # 首次自动拉取镜像并启动
+docker compose logs -f        # 查看日志
+docker compose down           # 停止
+```
+
+如未使用本项目自带 compose，可用最小示例：
+
+```yaml
+services:
+  7ma:
+    image: zhacha222/7ma:v2.0.0
+    container_name: 7ma
+    restart: unless-stopped
+    ports:
+      - "4321:4321"
+    volumes:
+      - 7ma_config:/app/config
+      - 7ma_logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+
+volumes:
+  7ma_config:
+  7ma_logs:
+```
+
+---
+
+## 🔑 后台登录 / 修改与重置密码
+
+### 默认密码
+
+- 后台地址：`http://<_主机IP>:4321/admin`
+- 默认密码：**`password`**（未修改时生效，登录入口有提示）
+- 首次登录后请在「设置 → 修改密码」中更改为强密码。
+
+### 各平台「忘记密码」重置方法
+
+> 无论哪个平台，重置的原理都是运行 `python reset_password.py [新密码]`。下面分平台给出进入该脚本环境的方式。
+
+**① Windows 桌面版（exe）**
+- 在 `desktop` 目录（exe 同目录）打开命令行 PowerShell：
+  ```powershell
+  python reset_password.py 你的新密码
+  ```
+- 不带参数则交互式输入并二次确认。
+
+**② Linux / 源码运行**
+```bash
+cd 7ma项目目录
+python reset_password.py 你的新密码
+```
+
+**③ Docker 容器**
+- 进入容器执行：
+  ```bash
+  docker exec -it 7ma bash
+  python reset_password.py 你的新密码
+  ```
+- 或一条命令：
+  ```bash
+  docker exec -it 7ma python reset_password.py 你的新密码
+  ```
+
+> 无参数执行时会交互式输入：密码至少 4 位。重置后需重新登录后台。
 
 ---
 
@@ -84,50 +200,18 @@ python app.py
 
 | 侧边栏板块 | 说明 |
 | --- | --- |
-| 账号管理 | Authorization 列表、资产、手机号登录、批量选择、认证等 |
+| 账号管理 | Authorization 列表、资产、手机号登录、批量选择、批量认证等 |
 | 订单信息 | 下单/还车/失败等订单记录，筛选 + 排序 + 删除 |
-| 积分获取 | 运行 / 定时 / 批量运行 / 批量兑换 / 自动积分，查看日志 |
-| 日志查看 | 分类日志文件，弹窗查看、删除 |
+| 积分获取 | 运行 / 定时 / 批量运行 / 批量兑换骑行卡 / 自动积分，查看日志 |
+| 日志查看 | 分类日志文件，弹窗查看内容、删除文件 |
 | 设置 | 日志清理天数、API 密钥、通知渠道、修改密码 |
 | 教程文档 | 各通知渠道接入教程 |
-
-### 默认密码与重置
-
-- **默认密码**：`password`（未修改时生效，登录入口有提示）。
-- **忘记密码**：通过 SSH 登录服务器后运行重置脚本：
-
-```bash
-cd /root/ 7ma项目目录
-python reset_password.py 新密码
-```
-
-> 无参数执行时则会交互式输入并二次确认新密码。
-
----
-
-## 🔔 消息通知
-
-在「设置 → 通知渠道」中可**绑定多个**通知方式，绑定后事件会同时推送。支持渠道：
-
-Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Bark、QQ 机器人、ntfy、Gotify、自定义 Webhook。
-
-每个事件可独立开关：
-
-- 订阅登录后台
-- 请求订单及还车状态
-- 积分获取结果及账号信息统计
-- 账号添加
-
-每个绑定可“测试消息”，并在列表看到最近一次发送状态（成功 / 失败）。
-
-推送配置详细教程见后台「教程文档」。
 
 ---
 
 ## 🔑 远程 API（密钥鉴权）
 
-在「设置 → API 密钥」查看 / 重新生成 `X-API-Key`。调用时在请求头携带该密钥。
-> 远程 API 已开启 CORS，配套 App 从任意页面跨域调用均可。
+在「设置 → API 密钥」查看 / 重新生成 `X-API-Key`，调用时在请求头携带，已开启 CORS。
 
 ### 查询服务状态
 
@@ -149,78 +233,35 @@ Body(JSON): {"bike_number": "123456"}
 ```
 
 ```json
-{"message": "下单成功", "unlock_result": "开锁成功", "is_success": true}
+{"message": "下单", "unlock_result": "开锁成功", "is_success": true}
 ```
 
 ---
 
-## 📱 配套 App（扫码 / 手动下单）
+## 🔔 消息通知
 
-配套 App 是一个**手机端 Web App**（单页、无框架、无构建依赖），用于替代网页版下单页，随时随地扫码用车：
+「设置 → 通知渠道」支持绑定多个渠道并同时推送：Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Bark、QQ 机器人、ntfy、Gotify、自定义 Webhook。每个事件可独立开关（单独登录后台 / 请求订单及还车状态 / 积分获取结果及账号统计 / 添加账号），每个绑定可「测试消息」并查看最近一次发送状态。
 
-- **访问方式**：浏览器打开 `http://你的域名:4321/app`（由本服务直接托管）；也可以把 `templates/app.html` 拷到任意静态空间独立部署，二维码识别库加载失败时会自动降级到 CDN。
-- **首次使用**：打开后先填写「服务地址（域名）」与「API 密钥」，点「测试连接」可立即验证连通性（密钥在后台「设置 → API 密钥」查看）。
-- **修改配置**：主界面**左上角小图标**点击后以弹窗方式修改服务地址 / API 密钥；配置保存在本机浏览器本地，不会上传。
-- **主界面**：提供两个入口——
-  - 扫码用车：扫描车身二维码（例如 `http://www.7mate.cn/app.php?randnum=123456`），自动提取 `randnum` 作为车辆编号，确认后下单；不支持摄像头的环境可用「相册/拍照」识别兜底。
-  - 输入车辆编号：手动输入编号下单，也支持直接粘贴二维码链接自动提取编号。
-  - 下单逻辑与网页前端完全一致：调用 `POST /api/v1/order`（携带 `X-API-Key`），账号搜索、开锁、还车监控等均由平台完成。
-- **最近订单**：自动记录最近 20 条下单结果，点击记录可回填编号再次下单。
-
-> ⚠️ 浏览器调取摄像头需要在 HTTPS 环境（或 localhost）。局域网 HTTP 访问时摄像头可能不可用，但「相册 / 拍照」和「手动输入」不受影响。
-
----
-
-## 📦 打包成 App
-
-### Windows 桌面版（可双击运行）
-
-已内置打包脚本，产物为一个独立 exe（内置本地服务 + WebView 窗口，界面与网页版一致）：
-
-```bash
-cd desktop
-pwsh -File build_exe.ps1          # 首次会自动安装 pywebview / pyinstaller
-```
-
-- 产物路径：`desktop/dist/7MA用车助手.exe`，双击即可打开。
-- 开发方式直接运行：`python desktop/app.py`。
-- 首次打开桌面版同样先填服务地址与 API 密钥（保存到本机），之后左上角齿轮可改。
-
-### 安卓 APK（HBuilderX 云打包）
-
-`pack/uni-app-7ma/` 是一个精简 uni-app 壳工程，只有一个 WebView 页面加载配套 App：
-
-1. 下载安装 [HBuilderX](https://www.dcloud.io/hbuilderx.html)。
-2. 打开工程目录 `pack/uni-app-7ma/`（文件 → 导入）。
-3. 修改 `config.js` 里的 `baseUrl` 为你的 7MA 平台地址（如 `https://7ma.example.com`）。
-4. 菜单「发行 → 原生App-云打包」→ 选择 Android、勾选「公共测试证书」，点击打包。
-5. 云打包完成后下载 apk 安装到手机即可。
-
-> WebView 内调取摄像头同样要求平台地址为 HTTPS；HTTP 下可用「扫码 → 相册/拍照」或「输入车辆编号」兜底。
-
----
-
-## ⚙️ 日志自动清理
-
-「设置 → 日志自动清理」可配置保留天数，系统每小时自动删除超过保留天数的 `logs/*.log`（填 0 表示不自动清理），避免日志堆积占用磁盘。
+推送配置详细教程见后台「教程文档」。
 
 ---
 
 ## 🧩 使用流程（免费用车）
 
 1. 前端填写单车编号并下单。
-2. 系统持续在多个账号中搜索可用账号下单（有账号在骑行时最多等待 2 分钟）。
-3. 下单成功后立即开锁并返回结果；同时后台启动「还车监控」。
-4. 还车监控持续 1 分钟，每 3 秒检测进行中订单，一旦出现立即还车并复核，直到确认无进行中订单，防止超时扣费。
+2. 系统持续在多个账号中搜索可用账号（所有账号有订单时最多等待 2 分钟）。
+3. 下单成功后立即开锁并返回结果；后台同时启动「还车监控」。
+4. 还车监控持续 1 分钟、每 3 秒检测进行中订单，出现即还车并复核，直到确认无进行中订单，防止超时扣费。
 
 ---
 
 ## ❓ 常见问题
 
-- **平台要求最低 Python 版本？** 建议 Python 3.7+，推荐 3.9+。
+- **最低 Python 版本？** 源码运行建议 Python 3.7+，推荐 3.9+；Windows 推荐直接使用 exe。
 - **Authorization 失效 / 401？** 重新抓包并在「账号管理」中更换或重新登录。
-- **为什么一直提示无可用账号？** 所有账号均处于骑行中订单，等待还车后自动重试；超过 2 分钟仍未返回成功则提示失败。
-- **通知收不到？** 在「设置 → 通知渠道」中点击对应渠道的「测试消息」，查看最近一次发送状态与错误信息。
+- **一直提示无可用账号？** 所有账号均有未完成行程，等待还车后自动重试；超过 2 分钟仍未成功则提示失败。
+- **通知收不到？** 在「设置 → 通知渠道」点击「测试消息」，查看最近一次状态与错误。
+- **Docker 无法启动？** `docker logs 7ma` 查看；确认 4321 端口未被占用、时区为 `Asia/Shanghai`。
 
 ---
 

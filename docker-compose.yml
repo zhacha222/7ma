@@ -12,7 +12,7 @@ services:
       dockerfile: Dockerfile
     # 远程镜像（发布后，替换为你的镜像仓库地址）：
     # image: your-dockerhub-name/7ma:v2.0.0
-    image: 7ma:v2.0.0
+    image: zhacha222/7ma:v2.0.0
     container_name: 7ma
     restart: unless-stopped
     ports:
