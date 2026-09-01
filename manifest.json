@@ -1,0 +1,52 @@
+{
+    "name" : "7MA用车助手",
+    "appid" : "__UNI__03B0A5A",
+    "description" : "7MA 出行配套扫码用车 App",
+    "versionName" : "1.0.0",
+    "versionCode" : 100,
+    "transformPx" : false,
+    "app-plus" : {
+        "usingComponents" : true,
+        "nvueStyleCompiler" : "uni-app",
+        "compilerVersion" : 3,
+        "splashscreen" : {
+            "alwaysShowBeforeRender" : true,
+            "waiting" : true,
+            "autoclose" : true,
+            "delay" : 0
+        },
+        "modules" : {},
+        "distribute" : {
+            "android" : {
+                "permissions" : [
+                    "<uses-permission android:name=\"android.permission.INTERNET\"/>",
+                    "<uses-permission android:name=\"android.permission.ACCESS_NETWORK_STATE\"/>",
+                    "<uses-permission android:name=\"android.permission.CAMERA\"/>"
+                ]
+            },
+            "ios" : {
+                "dSYMs" : false
+            },
+            "sdkConfigs" : {
+                "ad" : {}
+            },
+            "icons" : {
+                "android" : {
+                    "hdpi" : "H:/ai工作目录/7ma/安卓apk/uni-app-7ma/ab80e-gjjlj.png",
+                    "xhdpi" : "H:/ai工作目录/7ma/安卓apk/uni-app-7ma/ab80e-gjjlj.png",
+                    "xxhdpi" : "H:/ai工作目录/7ma/安卓apk/uni-app-7ma/ab80e-gjjlj.png",
+                    "xxxhdpi" : "H:/ai工作目录/7ma/安卓apk/uni-app-7ma/ab80e-gjjlj.png"
+                }
+            }
+        }
+    },
+    "quickapp" : {},
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        }
+    },
+    "vueVersion" : "3",
+    "fallbackLocale" : "zh-Hans"
+}

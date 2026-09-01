@@ -1,0 +1,18 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "7MA用车",
+        "navigationBarBackgroundColor": "#10162b",
+        "navigationBarTextStyle": "white",
+        "app-plus": { "bounce": "none", "scrollIndicator": "none" }
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarBackgroundColor": "#10162b",
+    "backgroundColor": "#10162b"
+  }
+}
