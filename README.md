@@ -4,11 +4,11 @@
 
 ## 使用步骤（HBuilderX 3.3.5）
 
-1. 打开 `F:\HBuilderX.3.3.5.20211229.full\HBuilderX\HBuilderX.exe`
+1. 打开 `HBuilderX`
 2. 菜单：文件 → 打开目录 → 选择本目录（`pack\uni-app-7ma`）
 3. 修改根目录 `config.js`：
    ```js
-   export default { baseUrl: 'http://192.168.11.162:4321' }  // 本机局域网地址；模拟器用 10.0.2.2，本机浏览器预览用 127.0.0.1
+   export default { baseUrl: 'http://192.168.11.162:4321' }  // 本机IP地址；
    ```
 4. 预览调试（不打包先看效果）：
    - 菜单：运行 → 运行到浏览器 → Chrome/手机浏览器模拟器
