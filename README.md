@@ -127,6 +127,7 @@ Telegram、钉钉、企业微信、飞书、Server酱、PushPlus、Bark、QQ 机
 ## 🔑 远程 API（密钥鉴权）
 
 在「设置 → API 密钥」查看 / 重新生成 `X-API-Key`。调用时在请求头携带该密钥。
+> 远程 API 已开启 CORS，配套 App 从任意页面跨域调用均可。
 
 ### 查询服务状态
 
@@ -150,6 +151,52 @@ Body(JSON): {"bike_number": "123456"}
 ```json
 {"message": "下单成功", "unlock_result": "开锁成功", "is_success": true}
 ```
+
+---
+
+## 📱 配套 App（扫码 / 手动下单）
+
+配套 App 是一个**手机端 Web App**（单页、无框架、无构建依赖），用于替代网页版下单页，随时随地扫码用车：
+
+- **访问方式**：浏览器打开 `http://你的域名:4321/app`（由本服务直接托管）；也可以把 `templates/app.html` 拷到任意静态空间独立部署，二维码识别库加载失败时会自动降级到 CDN。
+- **首次使用**：打开后先填写「服务地址（域名）」与「API 密钥」，点「测试连接」可立即验证连通性（密钥在后台「设置 → API 密钥」查看）。
+- **修改配置**：主界面**左上角小图标**点击后以弹窗方式修改服务地址 / API 密钥；配置保存在本机浏览器本地，不会上传。
+- **主界面**：提供两个入口——
+  - 扫码用车：扫描车身二维码（例如 `http://www.7mate.cn/app.php?randnum=123456`），自动提取 `randnum` 作为车辆编号，确认后下单；不支持摄像头的环境可用「相册/拍照」识别兜底。
+  - 输入车辆编号：手动输入编号下单，也支持直接粘贴二维码链接自动提取编号。
+  - 下单逻辑与网页前端完全一致：调用 `POST /api/v1/order`（携带 `X-API-Key`），账号搜索、开锁、还车监控等均由平台完成。
+- **最近订单**：自动记录最近 20 条下单结果，点击记录可回填编号再次下单。
+
+> ⚠️ 浏览器调取摄像头需要在 HTTPS 环境（或 localhost）。局域网 HTTP 访问时摄像头可能不可用，但「相册 / 拍照」和「手动输入」不受影响。
+
+---
+
+## 📦 打包成 App
+
+### Windows 桌面版（可双击运行）
+
+已内置打包脚本，产物为一个独立 exe（内置本地服务 + WebView 窗口，界面与网页版一致）：
+
+```bash
+cd desktop
+pwsh -File build_exe.ps1          # 首次会自动安装 pywebview / pyinstaller
+```
+
+- 产物路径：`desktop/dist/7MA用车助手.exe`，双击即可打开。
+- 开发方式直接运行：`python desktop/app.py`。
+- 首次打开桌面版同样先填服务地址与 API 密钥（保存到本机），之后左上角齿轮可改。
+
+### 安卓 APK（HBuilderX 云打包）
+
+`pack/uni-app-7ma/` 是一个精简 uni-app 壳工程，只有一个 WebView 页面加载配套 App：
+
+1. 下载安装 [HBuilderX](https://www.dcloud.io/hbuilderx.html)。
+2. 打开工程目录 `pack/uni-app-7ma/`（文件 → 导入）。
+3. 修改 `config.js` 里的 `baseUrl` 为你的 7MA 平台地址（如 `https://7ma.example.com`）。
+4. 菜单「发行 → 原生App-云打包」→ 选择 Android、勾选「公共测试证书」，点击打包。
+5. 云打包完成后下载 apk 安装到手机即可。
+
+> WebView 内调取摄像头同样要求平台地址为 HTTPS；HTTP 下可用「扫码 → 相册/拍照」或「输入车辆编号」兜底。
 
 ---
 

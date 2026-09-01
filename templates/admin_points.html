@@ -37,46 +37,59 @@
     <div class="hint" style="margin-bottom:12px;">点击账户的「开启定时」按钮可选择该账户每日自动运行时间。</div>
     {% if accounts %}
     <div style="overflow-x:auto;">
-    <table>
+    <table id="pointsTable" class="points-table">
         <thead>
             <tr>
-                <th style="width:40px;">选择</th>
-                <th>账号</th>
-                <th>姓名</th>
-                <th>学校</th>
-                <th>手机号</th>
-                <th>注册时间</th>
-                <th>ID</th>
-                <th>信用积分</th>
-                <th>当前积分</th>
-                <th>下次自动运行</th>
-                <th>待完成任务</th>
+                <th style="width:38px;text-align:center;"><input type="checkbox" id="selectAllHead" title="全选当前页"></th>
+                <th data-col="idx">
+                    <div class="th-row"><span>序号</span><button type="button" class="sort-btn" data-col="idx" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="idx" placeholder="序号">
+                </th>
+                <th data-col="name">
+                    <div class="th-row"><span>姓名</span><button type="button" class="sort-btn" data-col="name" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="name" placeholder="搜索姓名">
+                </th>
+                <th data-col="school">
+                    <div class="th-row"><span>学校</span><button type="button" class="sort-btn" data-col="school" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="school" placeholder="搜索学校">
+                </th>
+                <th data-col="phone">
+                    <div class="th-row"><span>手机号</span><button type="button" class="sort-btn" data-col="phone" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="phone" placeholder="搜索手机号">
+                </th>
+                <th data-col="points">
+                    <div class="th-row"><span>当前积分</span><button type="button" class="sort-btn" data-col="points" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="points" placeholder="积分">
+                </th>
+                <th data-col="cards">
+                    <div class="th-row"><span>骑行卡资产</span><button type="button" class="sort-btn" data-col="cards" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="cards" placeholder="卡片数">
+                </th>
+                <th data-col="next">
+                    <div class="th-row"><span>下次自动运行</span><button type="button" class="sort-btn" data-col="next" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="next" placeholder="下次时间">
+                </th>
+                <th data-col="status">
+                    <div class="th-row"><span>状态</span><button type="button" class="sort-btn" data-col="status" title="点击排序">⇅</button></div>
+                    <select class="filter-input filter-select" data-col="status">
+                        <option value="">全部</option>
+                        <option value="正常">正常</option>
+                        <option value="失效">失效</option>
+                    </select>
+                </th>
+                <th style="width:210px;">待完成任务</th>
                 <th style="width:210px;">操作</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="pointsBody">
             {% for account in accounts %}
-            <tr>
-                <td><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
-                <td style="word-break:break-word;">
-                    <div class="mono" style="font-size:12px;">{{ account.masked }}</div>
-                    {% if not account.info.ok %}
-                    <div style="color:#dc2626;font-size:12px;">{{ account.info.error }}</div>
-                    {% endif %}
-                </td>
+            {% set _status = '正常' if account.info.ok else '失效' %}
+            <tr data-idx="{{ loop.index }}" data-name="{{ account.info.username or '' if account.info.ok else '' }}" data-school="{{ account.info.school_name or '' if account.info.ok else '' }}" data-phone="{{ account.info.show_phone or '' if account.info.ok else '' }}" data-points="{{ account.info.points if account.info.ok and account.info.points is not none else '' }}" data-cards="{{ account.cards_count }}" data-next="{{ account.next_run or '' }}" data-status="{{ _status }}">
+                <td style="text-align:center;"><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
+                <td style="font-size:13px;">{{ loop.index }}</td>
                 <td style="font-size:13px;">{{ account.info.username or '—' if account.info.ok else '—' }}</td>
                 <td style="font-size:13px;">{{ account.info.school_name or '—' if account.info.ok else '—' }}</td>
                 <td style="font-size:13px;white-space:nowrap;">{{ account.info.show_phone or '—' if account.info.ok else '—' }}</td>
-                <td style="font-size:12px;white-space:nowrap;">{{ account.info.register_time or '—' if account.info.ok else '—' }}</td>
-                <td style="font-size:13px;">{{ account.info.user_id or '—' if account.info.ok else '—' }}</td>
-                <td style="font-size:13px;">
-                    {% if account.credit and account.credit.ok %}
-                    <div>{{ account.credit.credit_scores if account.credit.credit_scores is not none else '—' }}</div>
-                    {% if account.credit.update_time %}<div style="color:#7c8894;font-size:12px;">{{ account.credit.update_time }}</div>{% endif %}
-                    {% else %}
-                    —
-                    {% endif %}
-                </td>
                 <td style="text-align:center;">
                     {% if account.info.ok and account.info.points is not none %}
                     <div class="stat">{{ account.info.points }}</div>
@@ -87,14 +100,31 @@
                     <div class="badge success" style="margin-top:6px;">上次 +{{ account.last_gain }}</div>
                     {% endif %}
                 </td>
+                <td style="font-size:12px;">
+                    {% if account.cards %}
+                    <div style="color:#4b56c4;">{{ account.cards_count }} 张</div>
+                    {% for card in account.cards[:2] %}
+                    <div style="color:#7c8894;">{{ card.name or card.carmodel_name or '骑行卡' }} · 剩余 {{ card.remaining or 0 }}/{{ card.times or 0 }}</div>
+                    {% endfor %}
+                    {% else %}
+                    <span style="color:#9aa3af;">无骑行卡</span>
+                    {% endif %}
+                </td>
                 <td style="font-size:13px;white-space:nowrap;">
                     {% if account.scheduled and account.next_run %}
                     <span>{{ account.next_run }}</span>
                     {% else %}
-                    <span style="color:#9aa3af;">未开启</span>
+                    <span style="color:#9aa3af;">未设置</span>
                     {% endif %}
                 </td>
-                <td style="font-size:13px;min-width:180px;">
+                <td style="font-size:13px;">
+                    {% if account.info.ok %}
+                    <span class="badge success">正常</span>
+                    {% else %}
+                    <span class="badge danger">失效</span>
+                    {% endif %}
+                </td>
+                                <td style="font-size:13px;min-width:180px;">
                     {% for task in account.tasks %}
                     <div style="padding:3px 0;">
                         <span>{{ task.name }}</span>
@@ -106,7 +136,7 @@
                         {% elif task.status == 'partial' %}
                         <span class="badge info">部分完成</span>
                         {% elif task.status == 'watched' %}
-                        <span class="badge muted">已处理</span>
+                        <span class="badge muted">已观看</span>
                         {% elif task.status == 'skipped' %}
                         <span class="badge muted">已跳过</span>
                         {% elif task.status == 'failed' %}
@@ -115,12 +145,12 @@
                         <span class="badge warning">待完成</span>
                         {% endif %}
                         {% if task.detail %}
-                        <span style="color:#7c8894;">· {{ task.detail }}</span>
+                        <span style="color:#7c8894;">：{{ task.detail }}</span>
                         {% endif %}
                     </div>
                     {% endfor %}
                 </td>
-                <td style="white-space:nowrap;">
+<td style="white-space:nowrap;">
                     <a href="/admin/points/log/{{ account.index }}" class="btn small secondary" style="display:block;margin-bottom:8px;">查看日志</a>
                     <form action="/admin/points/run/{{ account.index }}" method="post" style="display:block;margin-bottom:8px;">
                         <button type="submit" class="btn small">立即运行</button>
@@ -143,6 +173,19 @@
         </tbody>
     </table>
     </div>
+
+    <div class="page-bar">
+        <label class="page-size-label">每页
+            <select id="pageSizeSelect" class="page-size-select">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            条
+        </label>
+        <div id="pagination" class="pagination"></div>
+    </div>
+
     <div class="hint" style="margin-top:10px;"><a href="/admin/points?refresh=1" style="color:#007bff;">刷新账户积分</a></div>
     {% else %}
     <div class="hint">暂无账户，请先在「账号管理」中添加 Authorization。</div>
@@ -188,6 +231,36 @@
 </div>
 
 <style>
+    .points-table { min-width: 1280px; }
+    .points-table th { padding: 10px 11px; vertical-align: top; }
+    .th-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; margin-bottom: 6px; white-space: nowrap; }
+    .sort-btn {
+        border: none;
+        background: #eef2f7;
+        color: #5b6575;
+        width: 26px;
+        height: 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .sort-btn:hover { background: #dfe6ef; }
+    .sort-btn.active { background: var(--primary); color: #fff; }
+    .filter-input {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 12.5px;
+        background: #fbfcfe;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        margin: 0;
+        min-width: 100px;
+    }
+    .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); background: #fff; }
+    .filter-select { appearance: auto; }
+    .points-table tbody tr.hidden { display: none; }
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-overlay.open { display: flex; }
     .modal { width: 380px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
@@ -196,6 +269,34 @@
     .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
     .modal-close:hover { background: #e0e6ef; }
     .modal-body { padding: 18px 20px; }
+    .page-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .page-size-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #55606e; font-weight: 600; }
+    .page-size-select {
+        padding: 6px 8px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 13px;
+        background: #fff;
+        color: #1f2937;
+        cursor: pointer;
+    }
+    .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .page-btn {
+        border: 1px solid #dbe2ec;
+        background: #fff;
+        color: #445066;
+        border-radius: 7px;
+        padding: 6px 11px;
+        font-size: 12.5px;
+        cursor: pointer;
+        line-height: 1.2;
+        min-width: 32px;
+        text-align: center;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .pagination-info { color: var(--muted); font-size: 12.5px; margin-left: 8px; white-space: nowrap; }
 </style>
 
 <script>
@@ -214,29 +315,153 @@
         if (e.key === 'Escape') closeSchedule();
     });
 
-    var selectAll = document.getElementById('selectAll');
-    var rowSelects = function () { return Array.prototype.slice.call(document.querySelectorAll('.row-select')); };
-    function getSelected() {
-        return rowSelects().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+    var sortCol = 'idx';
+    var sortDir = 'asc';
+    var tbody = document.getElementById('pointsBody');
+    var resultCount = document.getElementById('resultCount');
+    var paginationEl = document.getElementById('pagination');
+    var pageSizeSelect = document.getElementById('pageSizeSelect');
+    var pageSize = parseInt(localStorage.getItem('ops_pageSize_points') || '20', 10);
+    if ([20, 50, 100].indexOf(pageSize) === -1) pageSize = 20;
+    if (pageSizeSelect) pageSizeSelect.value = String(pageSize);
+    var page = 1;
+
+    function getRows() { return Array.prototype.slice.call(tbody.querySelectorAll('tr')); }
+    function visibleRows() { return getRows().filter(function (r) { return !r.classList.contains('hidden'); }); }
+    function readFilters() {
+        var filters = {};
+        document.querySelectorAll('.filter-input').forEach(function (input) { filters[input.dataset.col] = (input.value || '').trim().toLowerCase(); });
+        return filters;
     }
-    function updateCount() {
-        var countEl = document.getElementById('selectedCount');
-        if (!countEl) return;
-        var checked = getSelected();
-        countEl.textContent = checked.length ? '已选 ' + checked.length + ' 个' : '未选择';
-        if (selectAll) {
-            var all = rowSelects();
-            selectAll.checked = all.length > 0 && checked.length === all.length;
-            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
+    function rowMatches(row, filters) {
+        for (var col in filters) {
+            var value = filters[col];
+            if (!value) continue;
+            var cell = row.getAttribute('data-' + col) || '';
+            if (col === 'status' || col === 'idx') {
+                if (String(cell).toLowerCase() !== value) return false;
+            } else if (col === 'points') {
+                if (String(cell) !== value) return false;
+            } else if (cell.toLowerCase().indexOf(value) === -1) { return false; }
         }
+        return true;
     }
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            rowSelects().forEach(function (c) { c.checked = selectAll.checked; });
-            updateCount();
+    function sortRows(rows) {
+        rows.sort(function (a, b) {
+            var result;
+            if (sortCol === 'idx' || sortCol === 'points' || sortCol === 'cards') {
+                result = (parseInt(a.getAttribute('data-' + sortCol) || '-999', 10)) - (parseInt(b.getAttribute('data-' + sortCol) || '-999', 10));
+            } else if (sortCol === 'status') {
+                var rank = { '正常': 1, '失效': 0 };
+                result = (rank[a.getAttribute('data-status')] || 0) - (rank[b.getAttribute('data-status')] || 0);
+            } else {
+                var av = a.getAttribute('data-' + sortCol) || ''; var bv = b.getAttribute('data-' + sortCol) || '';
+                result = av.localeCompare(bv, 'zh-CN', { numeric: true });
+            }
+            return sortDir === 'asc' ? result : -result;
+        });
+        return rows;
+    }
+    function buildPagination(totalPages, total) {
+        if (!paginationEl) return;
+        paginationEl.innerHTML = '';
+        function pageBtn(label, pg, active, disabled) {
+            var b = document.createElement('button');
+            b.className = 'page-btn' + (active ? ' active' : '');
+            b.textContent = label;
+            if (disabled) { b.disabled = true; }
+            else if (pg) { b.onclick = function () { page = pg; render(); }; }
+            return b;
+        }
+        paginationEl.appendChild(pageBtn('‹ 上一页', page - 1, false, page <= 1));
+        var start = Math.max(1, page - 2);
+        var end = Math.min(totalPages, start + 4);
+        start = Math.max(1, end - 4);
+        for (var p = start; p <= end; p++) paginationEl.appendChild(pageBtn(String(p), p, p === page, false));
+        paginationEl.appendChild(pageBtn('下一页 ›', page + 1, false, page >= totalPages));
+        var info = document.createElement('span');
+        info.className = 'pagination-info';
+        info.textContent = '共 ' + total + ' 个 · ' + pageSize + ' 条/页';
+        paginationEl.appendChild(info);
+    }
+    function render() {
+        var filters = readFilters();
+        var allRows = getRows();
+        var visibleRows = allRows.filter(function (r) { return rowMatches(r, filters); });
+        sortRows(visibleRows);
+        var totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        var start = (page - 1) * pageSize;
+        var end = Math.min(start + pageSize, visibleRows.length);
+        visibleRows.forEach(function (row, i) {
+            row.classList.toggle('hidden', !(i >= start && i < end));
+            tbody.appendChild(row);
+        });
+        allRows.forEach(function (row) { if (visibleRows.indexOf(row) === -1) row.classList.add('hidden'); });
+        if (resultCount) resultCount.textContent = '共 ' + visibleRows.length + ' 个';
+        buildPagination(totalPages, visibleRows.length);
+        updateSelection();
+    }
+    function getSelected() {
+        return getRows().filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; }).map(function (r) { return r.querySelector('.row-select').value; });
+    }
+    function syncSelectAll() {
+        var rows = visibleRows();
+        var checked = rows.filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; });
+        [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+            if (!sa) return;
+            sa.checked = rows.length > 0 && checked.length === rows.length;
+            sa.indeterminate = checked.length > 0 && checked.length < rows.length;
         });
     }
-    rowSelects().forEach(function (c) { c.addEventListener('change', updateCount); });
+    function updateSelection() {
+        var count = getSelected().length;
+        var el = document.getElementById('selectedCount');
+        if (el) el.textContent = count ? '已选 ' + count + ' 个' : '未选择';
+        syncSelectAll();
+    }
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+        input.addEventListener('input', function () { page = 1; render(); });
+        input.addEventListener('change', function () { page = 1; render(); });
+    });
+    document.querySelectorAll('.sort-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var col = btn.dataset.col;
+            if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; } else { sortCol = col; sortDir = 'asc'; }
+            page = 1;
+            document.querySelectorAll('.sort-btn').forEach(function (b) {
+                var arrow = '⇅';
+                if (b.dataset.col === sortCol) { arrow = sortDir === 'asc' ? '▲' : '▼'; b.classList.add('active'); } else { b.classList.remove('active'); }
+                b.textContent = arrow;
+            });
+            render();
+        });
+    });
+    function resetFilters() {
+        document.querySelectorAll('.filter-input').forEach(function (input) { input.value = ''; });
+        sortCol = 'idx'; sortDir = 'asc'; page = 1;
+        document.querySelectorAll('.sort-btn').forEach(function (b) {
+            b.textContent = '⇅'; b.classList.remove('active');
+            if (b.dataset.col === 'idx') { b.textContent = '▲'; b.classList.add('active'); }
+        });
+        render();
+    }
+    [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+        if (!sa) return;
+        sa.addEventListener('change', function () {
+            visibleRows().forEach(function (r) { var c = r.querySelector('.row-select'); if (c) c.checked = sa.checked; });
+            updateSelection();
+        });
+    });
+    document.querySelectorAll('.row-select').forEach(function (c) { c.addEventListener('change', updateSelection); });
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function () {
+            pageSize = parseInt(pageSizeSelect.value, 10) || 20;
+            localStorage.setItem('ops_pageSize_points', String(pageSize));
+            page = 1; render();
+        });
+    }
     function prepBatch(e, hiddenId, confirmText) {
         var vals = getSelected();
         if (!vals.length) {
@@ -269,6 +494,7 @@
     if (batchScheduleForm) batchScheduleForm.addEventListener('submit', function (e) {
         prepBatch(e, 'batchScheduleSelected', '确认对选中的 ' + getSelected().length + ' 个账号批量开启定时运行？');
     });
-    updateCount();
+    document.querySelectorAll('.sort-btn').forEach(function (b) { if (b.dataset.col === 'idx') { b.textContent = '▲'; b.classList.add('active'); } });
+    render();
 </script>
 {% endblock %}

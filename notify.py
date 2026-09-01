@@ -151,31 +151,85 @@ def _send_bark(cfg, title, content):
     return ok, str(data.get("message") or f"HTTP {r.status_code}")
 
 
+# ---------------------------------------------------------------------------
+# 官方 QQ 机器人 API v2：（当用户提到 bot.q.qq.com 官方接口时使用）
+#   1) 获取 AppAccessToken：POST https://bots.qq.com/app/getAppAccessToken
+#      请求体 {"appId": BotAppID, "clientSecret": AppSecret}，返回 access_token。
+#   2) 发送主动消息（服务端使用 api.sgroup.qq.com 域名）：
+#      私聊(用户): POST https://api.sgroup.qq.com/v2/users/{openid}/messages
+#      群聊      : POST https://api.sgroup.qq.com/v2/groups/{group_openid}/messages
+#      Header: Authorization: QQBot <access_token>（部分环境使用 Bearer 前缀）
+#      请求体: {"content": "...", "msg_type": 0, "msg_seq": <int>}
+# ---------------------------------------------------------------------------
+_QQ_BOT_API_BASE = "https://api.sgroup.qq.com"
+_QQ_BOT_TOKEN_URL = "https://bots.qq.com/app/getAppAccessToken"
+_qq_token_cache = {}
+_qq_token_lock = threading.Lock()
+
+
+def _qq_get_access_token(app_id, app_secret):
+    """获取（并缓存）官方 AppAccessToken。返回 (token, error)。"""
+    cache_key = (app_id, app_secret)
+    with _qq_token_lock:
+        item = _qq_token_cache.get(cache_key)
+        if item and item.get("expires_at", 0) > time.time() + 60:
+            return item["token"], ""
+        data = {"appId": app_id, "clientSecret": app_secret}
+        try:
+            r = requests.post(_QQ_BOT_TOKEN_URL, json=data, timeout=10)
+        except Exception as exc:
+            return "", f"获取 QQ Token 请求异常：{exc}"
+        try:
+            payload = r.json()
+        except ValueError:
+            payload = {}
+        token = payload.get("access_token") or ""
+        if not token:
+            msg = payload.get("message") or payload.get("msg") or ""
+            return "", f"获取 QQ Token 失败（HTTP {r.status_code}）：{msg or '响应缺少 access_token'}"
+        _qq_token_cache[cache_key] = {"token": token, "expires_at": time.time() + int(payload.get("expires_in") or 7200)}
+        return token, ""
+
+
 def _send_qqbot(cfg, title, content):
-    base_url = (cfg.get("base_url") or "").strip().rstrip("/")
+    app_id = (cfg.get("app_id") or "").strip()
+    app_secret = (cfg.get("app_secret") or "").strip()
     target_type = (cfg.get("target_type") or "private").strip()
-    target_id = (cfg.get("target_id") or "").strip()
-    if not base_url or not target_id:
-        return False, "QQ机器人缺少 API 地址或接收对象"
-    action = "send_group_msg" if target_type == "group" else "send_private_msg"
-    url = f"{base_url}/{action}"
-    field = "group_id" if target_type == "group" else "user_id"
-    try:
-        target_id_value = int(target_id)
-    except ValueError:
-        target_id_value = target_id
-    payload = {field: target_id_value, "message": _text(title, content)}
+    open_id = (cfg.get("target_id") or "").strip()
+    if not app_id or not app_secret or not open_id:
+        return False, "QQ机器人缺少 AppID、AppSecret 或接收对象 openid"
+    token, err = _qq_get_access_token(app_id, app_secret)
+    if err:
+        return False, err
+    if target_type == "group":
+        url = f"{_QQ_BOT_API_BASE}/v2/groups/{open_id}/messages"
+    else:
+        url = f"{_QQ_BOT_API_BASE}/v2/users/{open_id}/messages"
+    payload = {
+        "content": _text(title, content),
+        "msg_type": 0,
+        "msg_seq": int(time.time() * 1000) % 0x7FFFFFFF,
+    }
     headers = {"Content-Type": "application/json"}
-    token = (cfg.get("token") or "").strip()
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-    r = requests.post(url, json=payload, headers=headers, timeout=10)
-    try:
-        data = r.json()
-    except ValueError:
-        data = {}
-    ok = data.get("status") in ("ok", "async") or data.get("retcode") in (0, "0")
-    return ok, str(data.get("wording") or data.get("message") or f"HTTP {r.status_code}")
+
+    # 官方推荐使用 Bearer 前缀；若服务端返回 401 则改用 QQBot 前缀重试一次，增强兼容。
+    for scheme in ("Bearer", "QQBot"):
+        headers["Authorization"] = f"{scheme} {token}"
+        try:
+            resp = requests.post(url, json=payload, headers=headers, timeout=10)
+        except Exception as exc:
+            return False, f"QQ 消息请求异常：{exc}"
+        try:
+            data = resp.json()
+        except ValueError:
+            data = {}
+        if resp.status_code == 401 and scheme == "Bearer":
+            continue
+        if resp.status_code < 300:
+            return True, "已发送（官方 API）"
+        detail = data.get("message") or data.get("msg") or data.get("detail") or f"HTTP {resp.status_code}"
+        return False, str(detail)
+    return False, f"鉴权失败，HTTP {resp.status_code}"
 
 
 def _send_ntfy(cfg, title, content):

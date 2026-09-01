@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card">
     <h1>订单信息</h1>
-    <p>从 <code>logs/order_*.log</code> 中解析的订单记录，支持按列筛选和排序。</p>
+    <p>从 <code>logs/order_*.log</code> 中解析的订单记录，支持按列筛选、排序、分页与批量删除。</p>
 </div>
 
 {% if message %}
@@ -18,7 +18,17 @@
             <strong style="font-size:14px;">订单记录</strong>
             <span id="resultCount" class="badge muted">共 {{ orders|length }} 条</span>
         </div>
-        <button type="button" class="btn small secondary" onclick="resetFilters()">重置筛选</button>
+        <div class="toolbar">
+            <button type="button" class="btn small secondary" onclick="resetFilters()">重置筛选</button>
+            {% if orders %}
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#55606e;">
+                <input type="checkbox" id="selectAll"> 全选
+            </label>
+            <span id="selectedCount" class="hint" style="margin:0;">未选择</span>
+            <button type="button" class="btn small danger" onclick="submitBatchDelete()">批量删除</button>
+            <form id="batchDeleteForm" action="/admin/orders/batch-delete" method="post" style="display:none;"></form>
+            {% endif %}
+        </div>
     </div>
 
     {% if orders %}
@@ -26,6 +36,7 @@
     <table id="ordersTable" class="orders-table">
         <thead>
             <tr>
+                <th style="width:38px;text-align:center;"><input type="checkbox" id="selectAllHead" title="全选当前页"></th>
                 <th data-col="time">
                     <div class="th-row"><span>下单时间</span><button type="button" class="sort-btn" data-col="time" title="点击排序">⇅</button></div>
                     <input class="filter-input" type="text" data-col="time" placeholder="例如 2026-08-31">
@@ -65,7 +76,8 @@
         </thead>
         <tbody id="ordersBody">
             {% for order in orders %}
-            <tr data-time="{{ order.time }}" data-account="{{ order.account_label }}" data-account-num="{{ order.auth_index or '' }}" data-status="{{ order.status }}" data-status-rank="{{ order.status_rank }}" data-bike="{{ order.bike }}" data-op="{{ order.op_type }}" data-detail="{{ order.detail }}">
+            <tr data-file="{{ order.file }}" data-raw="{{ order.raw }}" data-time="{{ order.time }}" data-account="{{ order.account_label }}" data-account-num="{{ order.auth_index or '' }}" data-status="{{ order.status }}" data-status-rank="{{ order.status_rank }}" data-bike="{{ order.bike }}" data-op="{{ order.op_type }}" data-detail="{{ order.detail }}">
+                <td style="text-align:center;"><input type="checkbox" class="row-select"></td>
                 <td style="white-space:nowrap;">{{ order.time }}</td>
                 <td>{{ order.account_label }}</td>
                 <td>
@@ -91,6 +103,18 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
+
+    <div class="page-bar">
+        <label class="page-size-label">每页
+            <select id="pageSizeSelect" class="page-size-select">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            条
+        </label>
+        <div id="pagination" class="pagination"></div>
     </div>
     {% else %}
     <div class="hint">暂无订单记录。</div>
@@ -128,16 +152,54 @@
     .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); background: #fff; }
     .filter-select { appearance: auto; }
     .orders-table tbody tr.hidden { display: none; }
+    .page-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .page-size-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #55606e; font-weight: 600; }
+    .page-size-select {
+        padding: 6px 8px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 13px;
+        background: #fff;
+        color: #1f2937;
+        cursor: pointer;
+    }
+    .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .page-btn {
+        border: 1px solid #dbe2ec;
+        background: #fff;
+        color: #445066;
+        border-radius: 7px;
+        padding: 6px 11px;
+        font-size: 12.5px;
+        cursor: pointer;
+        line-height: 1.2;
+        min-width: 32px;
+        text-align: center;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .pagination-info { color: var(--muted); font-size: 12.5px; margin-left: 8px; white-space: nowrap; }
 </style>
 
 <script>
     var sortCol = 'time';
-    var sortDir = 'desc'; // 默认按下单时间倒序
+    var sortDir = 'desc';
     var tbody = document.getElementById('ordersBody');
     var resultCount = document.getElementById('resultCount');
+    var paginationEl = document.getElementById('pagination');
+    var pageSizeSelect = document.getElementById('pageSizeSelect');
+    var pageSize = parseInt(localStorage.getItem('ops_pageSize_orders') || '20', 10);
+    if ([20, 50, 100].indexOf(pageSize) === -1) pageSize = 20;
+    if (pageSizeSelect) pageSizeSelect.value = String(pageSize);
+    var page = 1;
 
     function getRows() {
         return Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    }
+
+    function visibleRows() {
+        return getRows().filter(function (r) { return !r.classList.contains('hidden'); });
     }
 
     function readFilters() {
@@ -181,23 +243,81 @@
         return rows;
     }
 
-    function applyFilterSort() {
+    function buildPagination(totalPages, total) {
+        if (!paginationEl) return;
+        paginationEl.innerHTML = '';
+        function pageBtn(label, pg, active, disabled) {
+            var b = document.createElement('button');
+            b.className = 'page-btn' + (active ? ' active' : '');
+            b.textContent = label;
+            if (disabled) { b.disabled = true; }
+            else if (pg) { b.onclick = function () { page = pg; render(); }; }
+            return b;
+        }
+        paginationEl.appendChild(pageBtn('‹ 上一页', page - 1, false, page <= 1));
+        var start = Math.max(1, page - 2);
+        var end = Math.min(totalPages, start + 4);
+        start = Math.max(1, end - 4);
+        for (var p = start; p <= end; p++) {
+            paginationEl.appendChild(pageBtn(String(p), p, p === page, false));
+        }
+        paginationEl.appendChild(pageBtn('下一页 ›', page + 1, false, page >= totalPages));
+        var info = document.createElement('span');
+        info.className = 'page-info';
+        info.textContent = '共 ' + total + ' 条 · ' + pageSize + ' 条/页';
+        paginationEl.appendChild(info);
+    }
+
+    function render() {
         var filters = readFilters();
-        var rows = getRows();
-        var visible = 0;
-        rows.forEach(function (row) {
-            var match = rowMatches(row, filters);
-            row.classList.toggle('hidden', !match);
-            if (match) visible++;
+        var allRows = getRows();
+        var visibleRows = allRows.filter(function (r) { return rowMatches(r, filters); });
+        sortRows(visibleRows);
+        var totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        var start = (page - 1) * pageSize;
+        var end = Math.min(start + pageSize, visibleRows.length);
+        visibleRows.forEach(function (row, i) {
+            var shown = (i >= start && i < end);
+            row.classList.toggle('hidden', !shown);
+            tbody.appendChild(row);
         });
-        var visibleRows = rows.filter(function (row) { return !row.classList.contains('hidden'); });
-        sortRows(visibleRows).forEach(function (row) { tbody.appendChild(row); });
-        resultCount.textContent = '共 ' + visible + ' 条';
+        allRows.forEach(function (row) {
+            if (visibleRows.indexOf(row) === -1) row.classList.add('hidden');
+        });
+        if (resultCount) resultCount.textContent = '共 ' + visibleRows.length + ' 条';
+        buildPagination(totalPages, visibleRows.length);
+        updateSelection();
+    }
+
+    function getSelectedRows() {
+        return getRows().filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; });
+    }
+
+    function syncSelectAll() {
+        var rows = visibleRows();
+        var checked = rows.filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; });
+        var sa = document.getElementById('selectAll');
+        var sah = document.getElementById('selectAllHead');
+        var all = rows.length > 0 && checked.length === rows.length;
+        [sa, sah].forEach(function (el) {
+            if (!el) return;
+            el.checked = all;
+            el.indeterminate = checked.length > 0 && checked.length < rows.length;
+        });
+    }
+
+    function updateSelection() {
+        var count = getSelectedRows().length;
+        var el = document.getElementById('selectedCount');
+        if (el) el.textContent = count ? '已选 ' + count + ' 个' : '未选择';
+        syncSelectAll();
     }
 
     document.querySelectorAll('.filter-input').forEach(function (input) {
-        input.addEventListener('input', applyFilterSort);
-        input.addEventListener('change', applyFilterSort);
+        input.addEventListener('input', function () { page = 1; render(); });
+        input.addEventListener('change', function () { page = 1; render(); });
     });
 
     document.querySelectorAll('.sort-btn').forEach(function (btn) {
@@ -209,6 +329,7 @@
                 sortCol = col;
                 sortDir = 'desc';
             }
+            page = 1;
             document.querySelectorAll('.sort-btn').forEach(function (b) {
                 var arrow = '⇅';
                 if (b.dataset.col === sortCol) {
@@ -219,7 +340,7 @@
                 }
                 b.textContent = arrow;
             });
-            applyFilterSort();
+            render();
         });
     });
 
@@ -227,17 +348,55 @@
         document.querySelectorAll('.filter-input').forEach(function (input) { input.value = ''; });
         sortCol = 'time';
         sortDir = 'desc';
+        page = 1;
         document.querySelectorAll('.sort-btn').forEach(function (b) {
             b.textContent = '⇅';
             b.classList.remove('active');
             if (b.dataset.col === 'time') { b.textContent = '▼'; b.classList.add('active'); }
         });
-        applyFilterSort();
+        render();
     }
 
-    // 初始化排序按钮箭头（默认时间倒序）
+    var selectAll = document.getElementById('selectAll');
+    var selectAllHead = document.getElementById('selectAllHead');
+    [selectAll, selectAllHead].forEach(function (sa) {
+        if (!sa) return;
+        sa.addEventListener('change', function () {
+            var rows = visibleRows();
+            rows.forEach(function (r) { var c = r.querySelector('.row-select'); if (c) c.checked = sa.checked; });
+            updateSelection();
+        });
+    });
+
+    document.querySelectorAll('.row-select').forEach(function (c) {
+        c.addEventListener('change', updateSelection);
+    });
+
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function () {
+            pageSize = parseInt(pageSizeSelect.value, 10) || 20;
+            localStorage.setItem('ops_pageSize_orders', String(pageSize));
+            page = 1;
+            render();
+        });
+    }
+
+    function submitBatchDelete() {
+        var rows = getSelectedRows();
+        if (!rows.length) { alert('请先勾选要删除的订单记录'); return; }
+        if (!confirm('确认删除选中的 ' + rows.length + ' 条订单记录？')) return;
+        var form = document.getElementById('batchDeleteForm');
+        while (form.firstChild) form.removeChild(form.firstChild);
+        rows.forEach(function (r) {
+            var f = document.createElement('input'); f.type = 'hidden'; f.name = 'files'; f.value = r.getAttribute('data-file'); form.appendChild(f);
+            var l = document.createElement('input'); l.type = 'hidden'; l.name = 'lines'; l.value = r.getAttribute('data-raw'); form.appendChild(l);
+        });
+        form.submit();
+    }
+
     document.querySelectorAll('.sort-btn').forEach(function (b) {
         if (b.dataset.col === 'time') { b.textContent = '▼'; b.classList.add('active'); }
     });
+    render();
 </script>
 {% endblock %}

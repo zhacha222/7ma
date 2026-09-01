@@ -13,6 +13,7 @@ import threading
 from logging.handlers import TimedRotatingFileHandler
 from scheduler import main as start_scheduler
 import auth_store
+import account_profile_store
 import settings_store
 import points
 import points_store
@@ -31,6 +32,33 @@ app = Flask(__name__)
 
 # 启用调试模式（仅用于开发和调试）
 app.debug = False
+@app.after_request
+def _no_cache(response):
+    """前端页面即时刷新，避免浏览器缓存旧版（导致点击下单仍是旧逻辑）。"""
+    if request.path in ('/', '/process') or response.mimetype == 'text/html':
+        response.headers.setdefault('Cache-Control', 'no-store, no-cache, must-revalidate')
+        response.headers.setdefault('Pragma', 'no-cache')
+        response.headers.setdefault('Expires', '0')
+    if request.path.startswith('/api/'):
+        response.headers.setdefault('Access-Control-Allow-Origin', '*')
+        response.headers.setdefault('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        response.headers.setdefault('Access-Control-Allow-Headers', 'Content-Type, X-API-Key')
+        response.headers.setdefault('Access-Control-Max-Age', '86400')
+    return response
+
+
+@app.before_request
+def _handle_api_preflight():
+    """跨域预检：配套 App 从其它地址调用远程 API 时，浏览器会先发送 OPTIONS。"""
+    if request.method == 'OPTIONS' and request.path.startswith('/api/'):
+        return ('', 204, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, X-API-Key',
+            'Access-Control-Max-Age': '86400',
+        })
+
+
 
 
 def _load_secret_key():
@@ -164,8 +192,20 @@ def _order_operation(message):
 _STATUS_RANK = {'成功': 2, '失败': 1, '信息': 0}
 
 
+def _account_name_map_by_index():
+    """把当前 Authorization 列表的 1 基索引映射到账号姓名（来自本地档案）。"""
+    mapping = {}
+    tokens = auth_store.load_authorizations()
+    for i, token in enumerate(tokens, start=1):
+        raw_token = points.normalize_token(token) if token else ''
+        profile = account_profile_store.get_profile(raw_token) if raw_token else None
+        mapping[i] = (profile or {}).get('username') or ''
+    return mapping
+
+
 def read_order_logs():
     rows = []
+    _account_name_map = _account_name_map_by_index()
     for path in sorted(glob.glob(os.path.join('logs', 'order_*.log')), reverse=True):
         data = _read_bytes(path)
         text = _decode_text(data)
@@ -193,7 +233,9 @@ def read_order_logs():
             else:
                 auth_match = re.search(r'Authorization\[(\d+)\]', message)
                 auth_index = auth_match.group(1) if auth_match else ''
-            account_label = f'账号{auth_index}' if auth_index else '—'
+            name = _account_name_map.get(int(auth_index)) if auth_index.isdigit() else ''
+            account_name = name or ''
+            account_label = f'账号{auth_index}：{name}' if (auth_index and name) else (f'账号{auth_index}' if auth_index else '—')
             detail = message.replace('--', '').strip()
 
             rows.append({
@@ -205,6 +247,7 @@ def read_order_logs():
                 'bike': bike_number,
                 'auth_index': auth_index,
                 'account_label': account_label,
+                'account_name': account_name,
                 'detail': detail,
                 'file': os.path.basename(path),
                 'raw': line
@@ -251,7 +294,12 @@ def admin_required(view):
 # ===================== 用车前端 =====================
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', error=request.args.get('error', ''))
+
+@app.route('/app')
+def app_page():
+    """配套 App：扫码/手动下单，域名与密钥在前端配置后调用远程 API。"""
+    return render_template('app.html')
 
 def start_return_monitor(bike_number, index, total, authorization):
     """后台执行持续一分钟的还车监控，并把结果写入日志和推送通知。"""
@@ -274,45 +322,53 @@ def start_return_monitor(bike_number, index, total, authorization):
     threading.Thread(target=worker, daemon=True).start()
 
 
-def _is_account_available(authorization):
-    """判断账号是否可下单：无进行中订单则视为可用。"""
-    try:
-        authority = return_logic.fetch_car_authority(authorization)
-    except Exception:
-        # 查询异常时不阻塞，交给 place_order 的结果判断
-        return True, ''
-    if not authority.get('ok') or authority.get('unauthorized_code') == 6:
-        return False, '账号当前有进行中订单，暂不可用'
-    return True, ''
+def _is_trip_conflict(order_result):
+    """判断下单返回是否是因为“当前账号存在未完成行程”而失败。
+
+    car_authority 接口在账号已有行程时仍返回 unauthorized_code=0、order_sn 空，
+    无法可靠判断；真正可靠的信号是 place_order 返回的“当前有未完成的行程”。
+    """
+    message = (order_result or {}).get('message') or ''
+    return bool(message) and ('未完成的行程' in message or '未完成行程' in message)
+
+
+def _send_order_fail(bike_number, fail_message, notify_event='order'):
+    notify.send_async(notify_event, '用车下单结果', (
+        f"单车编号：{bike_number}\n"
+        f"结果：{fail_message}\n"
+        f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    ))
+    return {'message': fail_message, 'is_success': False}, False
 
 
 def _run_order_flow(bike_number, notify_event='order'):
-    """持续搜索可用账号下单；无可用账号时等待，最多两分钟。"""
+    """下单流程：先尝试下单，用下单结果判断该账号是否有未完成行程。
+
+    - 某账号下单成功 → 开锁并返回成功；
+    - 某账号返回“当前有未完成的行程” → 该账号有行程，跳过继续下一个；
+    - 某账号其它原因失败 → 直接返回该失败 message；
+    - 所有账号都存在未完成行程 → 等待几秒后重试，等有账号还车后再下单（最多两分钟）。
+    """
     authorizations = auth_store.load_authorizations()
     if not authorizations:
         return {'message': '后台尚未配置 Authorization，请先到管理后台添加。', 'is_success': False}, False
 
     total = len(authorizations)
     deadline = time.time() + 120
-    last_message = ''
+    last_trip_msg = ''
 
     while time.time() < deadline:
+        all_has_trip = False
         for index, authorization in enumerate(authorizations, start=1):
             if time.time() >= deadline:
                 break
-
-            available, unavailable_reason = _is_account_available(authorization)
-            if not available:
-                last_message = unavailable_reason or f'第 {index} 个账号当前不可用'
-                app_logger.info(f'--账号[{index}]暂不可用: bike_number={bike_number}, reason={last_message}')
-                continue
 
             try:
                 order_result = place_order(bike_number, authorization)
             except Exception as exc:
                 app_logger.warning(f'--Authorization[{index}] 请求异常: bike_number={bike_number}, error={exc}')
-                last_message = f'第 {index}/{total} 个 Authorization 请求异常，已切换下一个。'
-                continue
+                fail_message = f'第 {index}/{total} 个 Authorization 请求异常，已尝试下一个。'
+                return _send_order_fail(bike_number, fail_message, notify_event)
 
             if order_result.get('status_code') == 200 and order_result.get('message') == '下单成功':
                 try:
@@ -323,10 +379,8 @@ def _run_order_flow(bike_number, notify_event='order'):
                     unlock_message = '解锁请求异常'
                     unlock_result = {}
 
-                # 还车监控放到后台执行，下单成功后立即返回结果，不阻塞前台
                 start_return_monitor(bike_number, index, total, authorization)
 
-                # 记录成功订单到日志
                 app_logger.info(f'--成功订单: bike_number={bike_number}, auth_index={index}, unlock_result={unlock_message}, return_monitoring=已启动')
                 notify.send_async(notify_event, '用车下单/开锁结果', (
                     f"单车编号：{bike_number}\n"
@@ -342,27 +396,31 @@ def _run_order_flow(bike_number, notify_event='order'):
                     'is_success': True
                 }, True
 
-            last_message = order_result.get('message') or f'第 {index} 个 Authorization 不可用'
-            app_logger.warning(f'--失败订单: bike_number={bike_number}, auth_index={index}, message={last_message}')
+            if _is_trip_conflict(order_result):
+                # 该账号存在未完成行程 → 标记本轮“存在有行程账号”，跳到下一个账号
+                all_has_trip = True
+                last_trip_msg = f'第 {index} 个账号当前有未完成的行程'
+                app_logger.debug(f'--账号[{index}] 有未完成行程: bike_number={bike_number}')
+                continue
 
-        # 本轮未成功，等待 3 秒后重试，直到两分钟超时
-        if time.time() < deadline:
+            # 其它原因失败：直接返回日志 message，不再等待
+            fail_message = order_result.get('message') or f'第 {index} 个 Authorization 不可用'
+            app_logger.warning(f'--失败订单: bike_number={bike_number}, auth_index={index}, message={fail_message}')
+            return _send_order_fail(bike_number, fail_message, notify_event)
+
+        # 所有账号都存在未完成行程 → 等待，等有其它账号还车后再重试
+        if all_has_trip and time.time() < deadline:
             time.sleep(3)
 
-    fail_message = last_message or '两分钟内未找到可用账号，下单失败'
-    notify.send_async(notify_event, '用车下单失败', (
-        f"单车编号：{bike_number}\n"
-        f"结果：{fail_message}\n"
-        f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
-    ))
-    return {'message': fail_message, 'is_success': False}, False
+    fail_message = last_trip_msg or '所有账号均在忙碌中，未在等待时间内找到可用账号，下单失败'
+    return _send_order_fail(bike_number, fail_message, notify_event)
 
 
 @app.route('/process', methods=['POST'])
 def process():
     bike_number = (request.form.get('bike_number') or '').strip()
     if not bike_number:
-        return render_template('result.html', data={'message': '请输入单车编号', 'is_success': False})
+        return redirect(url_for('index', error='请输入单车编号后再下单'))
     data, _success = _run_order_flow(bike_number)
     return render_template('result.html', data=data)
 
@@ -436,9 +494,57 @@ def admin_accounts():
             cert = certification.get_cert_status(raw_token)
             points_store.set_cached_cert(raw_token, cert)
         account['cert'] = cert
+        account['local_profile'] = account_profile_store.get_profile(raw_token) if raw_token else None
+        account['is_invalid'] = bool(account['local_profile'] and account['local_profile'].get('invalid'))
     message = request.args.get('message', '')
     error = request.args.get('error', '')
     return render_template('admin_accounts.html', accounts=accounts, message=message, error=error, active='accounts')
+
+
+def _add_account_with_overwrite(token):
+    """添加账号；若本地存在同名/同手机号的已失效账号，则自动覆盖该失效账号。
+
+    返回 (操作描述, 是否发生了覆盖)。
+    """
+    raw_token = points.normalize_token(token)
+    if not raw_token:
+        return "", False
+
+    # 拉取账户信息以确定身份（姓名/手机号），并保存本地档案
+    info = points.fetch_user_info(raw_token)
+    if info.get("ok"):
+        account_profile_store.save_profile(raw_token, info)
+    else:
+        auth_store.add_authorizations([token])
+        return "", False
+
+    old_hash = account_profile_store.find_by_identity(raw_token)
+    if old_hash:
+        tokens = auth_store.load_authorizations()
+        new_tokens = []
+        replaced = False
+        old_label = "历史账号"
+        old_profile = None
+        for t in tokens:
+            rt = points.normalize_token(t)
+            if rt and account_profile_store._token_hash(rt) == old_hash:
+                new_tokens.append(token)
+                replaced = True
+                old_profile = account_profile_store.get_profile(rt)
+            else:
+                new_tokens.append(t)
+        if replaced:
+            auth_store.save_authorizations(new_tokens)
+            if old_profile:
+                old_label = ((old_profile.get('username') or '') + ('/' + old_profile.get('phone') if old_profile.get('phone') else '')) or '账号'
+            # 新 token 已保存档案，覆盖成功
+            return (f"已覆盖失效账号 {old_label}（{info.get('show_phone') or info.get('phone') or ''}）", True)
+        # 未找到对应 token（可能已被移除），直接追加
+        auth_store.add_authorizations([token])
+        return "", False
+
+    auth_store.add_authorizations([token])
+    return "", False
 
 
 def _cert_payload_from_status(cert, info):
@@ -598,6 +704,14 @@ def admin_edit(index):
         new_token = (request.form.get('authorization') or '').strip()
         if not new_token:
             return redirect(url_for('admin_edit', index=index, error='未填写 Authorization'))
+        old_norm = points.normalize_token(tokens[index])
+        raw_new = points.normalize_token(new_token)
+        if raw_new:
+            info = points.fetch_user_info(raw_new)
+            if info.get('ok'):
+                account_profile_store.save_profile(raw_new, info)
+        if old_norm:
+            account_profile_store.delete_profile(old_norm)
         tokens[index] = new_token
         auth_store.save_authorizations(tokens)
         return redirect(url_for('admin_accounts', message='Authorization 已更新'))
@@ -634,6 +748,20 @@ def admin_orders_delete():
     if deleted:
         return redirect(url_for('admin_orders', message='已删除该订单记录'))
     return redirect(url_for('admin_orders', error='删除失败或该记录不存在'))
+
+
+@app.route('/admin/orders/batch-delete', methods=['POST'])
+@admin_required
+def admin_orders_batch_delete():
+    lines = request.form.getlist('lines')
+    files = request.form.getlist('files')
+    deleted = 0
+    for raw_line, filename in zip(lines, files):
+        if delete_order_line(filename, raw_line):
+            deleted += 1
+    if deleted:
+        return redirect(url_for('admin_orders', message=f'已删除 {deleted} 条订单记录'))
+    return redirect(url_for('admin_orders', error='没有可删除的订单记录'))
 
 def classify_log_file(name):
     """根据日志文件名归类。"""
@@ -694,6 +822,26 @@ def admin_logs_delete():
         except OSError as exc:
             return redirect(url_for('admin_logs', error=f'删除失败：{exc}'))
     return redirect(url_for('admin_logs', error='文件不存在'))
+
+
+@app.route('/admin/logs/batch-delete', methods=['POST'])
+@admin_required
+def admin_logs_batch_delete():
+    names = request.form.getlist('files')
+    deleted = 0
+    for name in names:
+        safe_name = os.path.basename(name or '')
+        if safe_name and safe_name.endswith('.log'):
+            path = os.path.join('logs', safe_name)
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+                    deleted += 1
+            except OSError:
+                pass
+    if deleted:
+        return redirect(url_for('admin_logs', message=f'已删除 {deleted} 个日志文件'))
+    return redirect(url_for('admin_logs', error='没有可删除的日志文件'))
 
 
 @app.route('/admin/logs/content/<path:filename>')
@@ -797,8 +945,8 @@ def _channel_config_fields(channel):
         }
     if channel == 'qqbot':
         return {
-            'base_url': request.form.get('qqbot_base_url', '').strip(),
-            'token': request.form.get('qqbot_token', '').strip(),
+            'app_id': request.form.get('qqbot_app_id', '').strip(),
+            'app_secret': request.form.get('qqbot_app_secret', '').strip(),
             'target_type': request.form.get('qqbot_target_type', 'private').strip(),
             'target_id': request.form.get('qqbot_target_id', '').strip()
         }
@@ -954,7 +1102,7 @@ def admin_phone_login_submit():
     if not result.get('ok'):
         return jsonify(ok=False, error=result.get('error'))
     token = result['token']
-    auth_store.add_authorizations([f"Bearer {token}"])
+    note, replaced = _add_account_with_overwrite(f"Bearer {token}")
     for key in ('pl_token', 'pl_device_id', 'pl_phone', 'pl_sms_sent', 'pl_sms_message'):
         session.pop(key, None)
     user = result.get('user') or {}
@@ -962,7 +1110,8 @@ def admin_phone_login_submit():
         f"手机号登录成功，已添加 Authorization（{user.get('phone') or phone}）\n"
         f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     ))
-    return jsonify(ok=True, message=f"登录成功，已添加 Authorization（{user.get('phone') or phone}）")
+    msg = note or f"登录成功，已添加 Authorization（{user.get('phone') or phone}）"
+    return jsonify(ok=True, message=msg)
 
 @app.route('/admin/add', methods=['POST'])
 @admin_required
@@ -970,13 +1119,14 @@ def admin_add():
     token = (request.form.get('authorization') or '').strip()
     if not token:
         return redirect(url_for('admin_accounts', error='未填写Authorization'))
-    auth_store.add_authorizations([token])
+    note, replaced = _add_account_with_overwrite(token)
     masked = points.mask_token(points.normalize_token(token))
     notify.send_async('account', '添加账号通知', (
         f"已添加 1 个 Authorization：{masked}\n"
         f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     ))
-    return redirect(url_for('admin_accounts', message='已添加1个Authorization'))
+    message = note if replaced else '已添加1个Authorization'
+    return redirect(url_for('admin_accounts', message=message))
 
 @app.route('/admin/import', methods=['POST'])
 @admin_required
@@ -989,18 +1139,61 @@ def admin_import():
             parsed.append(token)
     if not parsed:
         return redirect(url_for('admin_accounts', error='没有解析到Authorization'))
-    auth_store.add_authorizations(parsed)
+    replaced_count = 0
+    for token in parsed:
+        _, replaced = _add_account_with_overwrite(token)
+        if replaced:
+            replaced_count += 1
     notify.send_async('account', '添加账号通知', (
         f"成功导入 {len(parsed)} 个 Authorization\n"
         f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     ))
-    return redirect(url_for('admin_accounts', message=f'成功导入{len(parsed)}个Authorization'))
+    extra = f"，覆盖失效账号 {replaced_count} 个" if replaced_count else ''
+    return redirect(url_for('admin_accounts', message=f'成功导入{len(parsed)}个Authorization{extra}'))
 
 @app.route('/admin/delete/<int:index>', methods=['POST'])
 @admin_required
 def admin_delete(index):
-    auth_store.remove_authorization(index)
+    tokens = auth_store.load_authorizations()
+    if 0 <= index < len(tokens):
+        raw_token = points.normalize_token(tokens[index])
+        auth_store.remove_authorization(index)
+        if raw_token:
+            points_store.delete_account(raw_token)
+            account_profile_store.delete_profile(raw_token)
     return redirect(url_for('admin_accounts', message='已删除'))
+
+
+@app.route('/admin/accounts/batch-delete', methods=['POST'])
+@admin_required
+def admin_accounts_batch_delete():
+    indices = request.form.getlist('indexes')
+    tokens = auth_store.load_authorizations()
+    delete_set = set()
+    for raw in indices:
+        try:
+            idx = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if 0 <= idx < len(tokens):
+            tok = points.normalize_token(tokens[idx])
+            if tok:
+                delete_set.add(tok)
+    remaining = []
+    removed = 0
+    for tok in tokens:
+        ntok = points.normalize_token(tok)
+        if ntok in delete_set:
+            removed += 1
+        else:
+            remaining.append(tok)
+    if removed:
+        auth_store.save_authorizations(remaining)
+        for tok in delete_set:
+            points_store.delete_account(tok)
+            account_profile_store.delete_profile(tok)
+        return redirect(url_for('admin_accounts', message=f'已删除 {removed} 个账号'))
+    return redirect(url_for('admin_accounts', error='没有可删除的账号'))
 
 @app.route('/admin/clear', methods=['POST'])
 @admin_required

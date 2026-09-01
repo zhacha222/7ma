@@ -70,14 +70,18 @@
     </div>
 
     <div class="tutorial card">
-        <div class="t-head"><h2>🤖 QQ 机器人</h2><a class="btn small secondary" href="https://napneko.github.io/zh-CN/develop/before" target="_blank" rel="noopener">NapCat/OneBot 文档</a></div>
+        <div class="t-head"><h2>🤖 QQ 机器人（官方 API）</h2><a class="btn small secondary" href="https://bot.q.qq.com/wiki/develop/api-v2/" target="_blank" rel="noopener">QQ 官方文档</a></div>
+        <p class="hint">接入 QQ 官方机器人 API v2，自动获取 access_token 并发送主动消息。点击下方「展开完整教程」查看详细步骤与 openid 获取方法。</p>
         <ol>
-            <li>部署 OneBot 兼容框架（如 NapCat、go-cqhttp 等）。</li>
-            <li>填写其 HTTP API 地址（如 <span class="mono">http://127.0.0.1:3000</span>）。</li>
-            <li>选择私聊或群聊，填写对应的 QQ 号或群号。</li>
+            <li>前往 QQ 开放平台创建机器人应用，获取 <span class="mono">BotAppID</span> 与 <span class="mono">AppSecret</span>。</li>
+            <li>在设置页「通知渠道 → QQ」填写 BotAppID、AppSecret。</li>
+            <li>选择「C2C 私聊 / 群聊 openid」，把接收对象 openid 填入。</li>
+            <li>点「测试消息」即可验证是否发送成功。</li>
         </ol>
+        <div class="card-footer">
+            <button type="button" class="btn" onclick="openQqTutorial()">展开完整教程</button>
+        </div>
     </div>
-
     <div class="tutorial card">
         <div class="t-head"><h2>🔔 ntfy</h2><a class="btn small secondary" href="https://docs.ntfy.sh" target="_blank" rel="noopener">官方文档</a></div>
         <ol>
@@ -123,5 +127,96 @@
     .t-head h2 { margin: 0; }
     .tutorial ol { margin: 0; padding-left: 20px; color: #445066; }
     .tutorial li { margin-bottom: 6px; }
+    .sub-head { margin: 14px 0 6px; font-weight: 700; color: #1f2937; font-size: 14px; }
+    .tutorial pre {
+        background: #f6f8fc;
+        border: 1px solid #e8edf5;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 12px;
+        line-height: 1.5;
+        overflow-x: auto;
+        color: #334155;
+    }
+
+    .tutorial .card-footer { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 100; padding: 16px; }
+    .modal-overlay.open { display: flex; }
+    .modal {
+        width: 860px;
+        max-width: calc(100vw - 32px);
+        max-height: 86vh;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e8edf5; }
+    .modal-head h3 { margin: 0; font-size: 16px; }
+    .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
+    .modal-close:hover { background: #e0e6ef; }
+    .modal-body { padding: 18px 22px; overflow-y: auto; }
+    .modal-scroll { max-height: 72vh; }
 </style>
+
+<!-- QQ 完整教程弹窗 -->
+<div class="modal-overlay" id="qqTutorialModal">
+    <div class="modal">
+        <div class="modal-head">
+            <h3>🤖 QQ 机器人（官方 API）完整教程</h3>
+            <button type="button" class="modal-close" onclick="closeQqTutorial()">×</button>
+        </div>
+        <div class="modal-body modal-scroll">
+            <div class="sub-head">1️⃣ 创建应用并获取凭证</div>
+            <p class="hint">前往 <a href="https://q.qq.com/bot/" target="_blank" rel="noopener">QQ 开放平台</a> 创建机器人应用，获取 <span class="mono">BotAppID</span> 与 <span class="mono">AppSecret</span>，并开通「主动消息」相关权限。</p>
+            <div class="sub-head">2️⃣ 在后台填写配置</div>
+            <ol>
+                <li>在设置页「通知渠道 → QQ机器人」填写 BotAppID、AppSecret。</li>
+                <li>私聊选「C2C 私聊 openid」，群聊选「群聊 openid」。</li>
+                <li>把对应 openid 填入「接收对象 openid」，点击「测试消息」验证。</li>
+            </ol>
+            <div class="sub-head">📎 openid 是什么？</div>
+            <p class="hint">openid 是平台针对<b>「某个用户/群 × 某款机器人」</b>生成的随机字符串（带中横线，例如 <span class="mono">xxxx-xxxx-xxxx</span>），<b>不是</b>QQ 号或群号。不同机器人下，同一个用户的 openid 不同。</p>
+            <div class="sub-head">🛠 方式一：用官方「获取 openid」调试工具</div>
+            <ol>
+                <li>登录 <a href="https://q.qq.com/bot/" target="_blank" rel="noopener">QQ 开放平台</a> → 进入你的机器人应用。</li>
+                <li>找到「调试信息 / 获取 openid / 开放调试」等入口（入口位置随官方改版变化）。</li>
+                <li>按提示输入目标用户的 QQ（或目标群号），返回该用户/群在该应用下的 openid。</li>
+                <li>复制 openid 粘贴到设置页。</li>
+            </ol>
+            <div class="sub-head">🧩 方式二：从事件回调中抓取 openid</div>
+            <p class="hint">最稳妥：先让目标用户（私聊）给机器人发一条消息，或把机器人拉进目标群并发一句话，再抓取事件内容中的 openid。</p>
+            <pre>// C2C 私聊消息事件（找 author.openid）
+{
+  "author":  { "openid": "用户在该机器人下的 openid" },
+  "message": { "content": "触发一条私聊" }
+}
+// 群聊消息事件（找 中中的 group_openid 字段）
+{
+  "author":       { "openid": "用户 openid" },
+  "group_openid": "群机器人所在的 openid"
+}
+一句话：私聊填 author.openid，群聊填 group_openid。</pre>
+            <p class="hint">C2C 私聊填 <span class="mono">author.openid</span>；群聊填 <span class="mono">group_openid</span>，二者不可互换。</p>
+            <div class="sub-head">⚠️ 主动消息限制</div>
+            <p class="hint">官方主动消息要求用户/群与机器人<b>曾有过互动</b>，同时受频次与配额限制；若收不到请按官方平台权限与配额调整。</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function openQqTutorial() {
+        document.getElementById("qqTutorialModal").classList.add("open");
+    }
+    function closeQqTutorial() {
+        document.getElementById("qqTutorialModal").classList.remove("open");
+    }
+    var qqModal = document.getElementById("qqTutorialModal");
+    if (qqModal) {
+        qqModal.addEventListener("click", function (e) { if (e.target === qqModal) closeQqTutorial(); });
+    }
+    document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeQqTutorial(); });
+</script>
 {% endblock %}

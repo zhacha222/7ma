@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#10162b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="7MA用车">
+    <title>7MA 用车助手</title>
+    <style>
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root {
+            --primary: #4f6ef7;
+            --grad: linear-gradient(135deg, #4f6ef7, #7c3aed);
+            --bg-1: #2c3c68; --bg-2: #151c2f; --bg-3: #0e1424;
+            --text: #1f2937; --muted: #7c8894;
+            --card: rgba(255,255,255,0.98);
+            --success: #16a34a; --danger: #dc2626;
+        }
+        html, body { height: 100%; }
+        body {
+            margin: 0; min-height: 100vh;
+            background: radial-gradient(120% 120% at 15% 8%, var(--bg-1), var(--bg-2) 52%, var(--bg-3));
+            background-attachment: fixed;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+            color: var(--text); -webkit-font-smoothing: antialiased; user-select: none;
+        }
+        .app { max-width: 480px; margin: 0 auto; padding: 12px 16px 24px; min-height: 100vh; display: flex; flex-direction: column; }
+        @supports (padding: max(0px)) {
+            .app { padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+        }
+        .topbar { display: flex; align-items: center; justify-content: space-between; padding: 6px 2px 14px; }
+        .icon-btn { width: 42px; height: 42px; border: none; border-radius: 12px; background: rgba(255,255,255,0.12); color: #fff; cursor: pointer; display: grid; place-items: center; }
+        .icon-btn:active { transform: scale(0.92); background: rgba(255,255,255,0.2); }
+        .icon-btn svg { width: 22px; height: 22px; }
+        .top-title { color: #fff; font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        #connDot { width: 8px; height: 8px; border-radius: 50%; background: #facc15; box-shadow: 0 0 0 3px rgba(250,204,21,0.25); }
+        #connDot.ok { background: #34d399; box-shadow: 0 0 0 3px rgba(52,211,153,0.25); }
+        #connDot.err { background: #f87171; box-shadow: 0 0 0 3px rgba(248,113,113,0.25); }
+        .icon-spacer { width: 42px; }
+        .view { display: none; flex-direction: column; gap: 16px; }
+        .view.active { display: flex; }
+        .hero { background: linear-gradient(135deg, rgba(79,110,247,0.92), rgba(124,58,237,0.92)); border-radius: 18px; padding: 22px 20px; color: #fff; box-shadow: 0 16px 34px rgba(61,88,216,0.35); }
+        .hero h2 { margin: 0 0 6px; font-size: 21px; }
+        .hero p { margin: 0; font-size: 13px; opacity: 0.9; word-break: break-all; }
+        .card { background: var(--card); border-radius: 18px; padding: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.22); }
+        .scan-card { display: flex; align-items: center; gap: 14px; cursor: pointer; color: var(--text); }
+        .scan-card:active { transform: scale(0.98); }
+        .card-icon { width: 56px; height: 56px; flex: 0 0 56px; border-radius: 16px; background: var(--grad); display: grid; place-items: center; color: #fff; }
+        .card-icon svg { width: 30px; height: 30px; }
+        .card-body { flex: 1; }
+        .card-title { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+        .card-desc { font-size: 13px; color: var(--muted); line-height: 1.45; }
+        .card-arrow { color: #c3ccda; font-size: 24px; font-weight: 600; }
+        .input-card .card-title { margin-bottom: 12px; }
+        .input-row { display: flex; gap: 10px; }
+        .input-row input { flex: 1; min-width: 0; padding: 13px 14px; border: 1px solid #dbe2ec; border-radius: 12px; font-size: 17px; background: #fbfcfe; color: var(--text); outline: none; }
+        .input-row input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.15); background: #fff; }
+        .btn { border: none; border-radius: 12px; padding: 13px 22px; background: var(--grad); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; box-shadow: 0 10px 20px rgba(79,110,247,0.3); }
+        .btn:active { transform: scale(0.96); }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .btn-ghost { background: transparent; color: #64748b; box-shadow: none; border: 1px solid #dbe2ec; }
+        .field-error { display: none; margin-top: 10px; padding: 9px 12px; border-radius: 9px; background: #fdeaea; border: 1px solid #f5c2c2; color: #b91c1c; font-size: 13px; font-weight: 600; }
+        .field-error.show { display: block; }
+        .history-head { display: flex; align-items: baseline; justify-content: space-between; font-size: 15px; font-weight: 700; color: #fff; padding: 0 2px 8px; }
+        .history-head span { font-size: 12px; font-weight: 400; opacity: 0.75; }
+        .history-list { margin: 0; padding: 0; list-style: none; }
+        .history-list li { background: var(--card); border-radius: 14px; margin-bottom: 10px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; cursor: pointer; box-shadow: 0 8px 20px rgba(0,0,0,0.18); }
+        .history-list li:active { transform: scale(0.98); }
+        .h-num { font-size: 19px; font-weight: 800; background: linear-gradient(135deg, #4f6ef7, #6a5bf3); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; min-width: 92px; }
+        .h-info { flex: 1; min-width: 0; }
+        .h-msg { font-size: 13px; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .h-time { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .h-status { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; flex: 0 0 auto; }
+        .h-status.ok { color: var(--success); background: #dcfce7; }
+        .h-status.bad { color: var(--danger); background: #fee2e2; }
+        .disclaimer { margin-top: auto; padding: 18px 0 0; text-align: center; font-size: 11px; color: rgba(255,255,255,0.45); }
+        .overlay { position: fixed; inset: 0; background: rgba(8,12,24,0.78); display: none; align-items: center; justify-content: center; z-index: 900; }
+        .overlay.show { display: flex; }
+        .loading-card { background: #fff; border-radius: 18px; padding: 34px 40px; text-align: center; box-shadow: 0 24px 70px rgba(0,0,0,0.5); max-width: 340px; width: calc(100% - 64px); }
+        .spinner { width: 46px; height: 46px; margin: 0 auto 18px; border: 4px solid #e2e8f0; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-card .t { margin: 0; color: #1f2937; font-size: 17px; font-weight: 700; }
+        .loading-card .s { margin: 8px 0 0; color: var(--muted); font-size: 13px; line-height: 1.5; }
+        .result-card { text-align: center; padding: 34px 24px; }
+        .result-icon { width: 74px; height: 74px; margin: 0 auto 16px; border-radius: 50%; display: grid; place-items: center; font-size: 34px; font-weight: 800; color: #fff; }
+        .result-icon.ok { background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 14px 30px rgba(22,163,74,0.35); }
+        .result-icon.bad { background: linear-gradient(135deg, #f87171, #dc2626); box-shadow: 0 14px 30px rgba(220,38,38,0.35); }
+        .result-title { font-size: 21px; font-weight: 800; margin: 0 0 4px; }
+        .result-title.ok { color: var(--success); }
+        .result-title.bad { color: var(--danger); }
+        .result-num { font-size: 15px; color: #64748b; margin: 0 0 14px; }
+        .result-num b { color: var(--primary); }
+        .result-msg { background: #f8fafc; border-radius: 12px; padding: 12px 16px; font-size: 15px; color: #334155; line-height: 1.6; margin: 0; word-break: break-all; text-align: left; white-space: pre-line; }
+        .result-actions { display: flex; gap: 10px; margin-top: 20px; }
+        .result-actions .btn { flex: 1; }
+        .modal-card { position: relative; background: #fff; border-radius: 20px; padding: 24px 22px; max-width: 420px; width: calc(100% - 48px); max-height: 88vh; overflow-y: auto; box-shadow: 0 24px 70px rgba(0,0,0,0.45); }
+        .modal-x { position: absolute; top: 14px; right: 14px; width: 30px; height: 30px; border: none; border-radius: 9px; background: #f1f4f9; color: #64748b; font-size: 16px; cursor: pointer; line-height: 1; }
+        .modal-card h3 { margin: 0 0 4px; font-size: 19px; }
+        .modal-sub { margin: 0 0 18px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .modal-field { margin-bottom: 14px; }
+        .modal-field label { display: block; font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+        .modal-field input { width: 100%; padding: 12px 13px; border: 1px solid #dbe2ec; border-radius: 11px; font-size: 14px; background: #fbfcfe; outline: none; }
+        .modal-field input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.14); background: #fff; }
+        .modal-tip { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.5; }
+        .status-line { display: none; padding: 9px 12px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; font-weight: 600; }
+        .status-line.ok { display: block; background: #dcfce7; color: #166534; }
+        .status-line.bad { display: block; background: #fee2e2; color: #b91c1c; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 6px; }
+        .modal-actions .btn { flex: 1; padding: 12px 10px; font-size: 15px; }
+        .modal-foot { margin-top: 14px; display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+        .modal-foot button { border: none; background: none; color: #94a3b8; font-size: 12px; cursor: pointer; text-decoration: underline; }
+        .onboarding-badge { text-align: center; margin-bottom: 14px; padding: 10px; border-radius: 12px; background: linear-gradient(135deg, rgba(79,110,247,0.12), rgba(124,58,237,0.12)); color: #3730a3; font-size: 13px; font-weight: 600; }
+        .scan-layer { background: #000; z-index: 950; flex-direction: column; padding-top: 12px; }
+        .scan-layer.show { display: flex; }
+        .scan-top { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 4px 16px 12px; color: #fff; }
+        .scan-top .title { font-size: 16px; font-weight: 700; }
+        .scan-top .close { width: 38px; height: 38px; border: none; border-radius: 10px; background: rgba(255,255,255,0.14); color: #fff; font-size: 20px; cursor: pointer; }
+        .scan-stage-wrap { position: relative; flex: 1; width: 100%; min-height: 0; overflow: hidden; }
+        #scanVideo { width: 100%; height: 100%; object-fit: cover; }
+        .scan-frame { position: absolute; inset: 0; margin: auto; width: 250px; height: 250px; }
+        .corner { position: absolute; width: 34px; height: 34px; border: 4px solid #fff; opacity: 0.92; }
+        .corner.tl { top: 0; left: 0; border-right: none; border-bottom: none; border-top-left-radius: 12px; }
+        .corner.tr { top: 0; right: 0; border-left: none; border-bottom: none; border-top-right-radius: 12px; }
+        .corner.bl { bottom: 0; left: 0; border-right: none; border-top: none; border-bottom-left-radius: 12px; }
+        .corner.br { bottom: 0; right: 0; border-left: none; border-top: none; border-bottom-right-radius: 12px; }
+        .scan-hint { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; color: #fff; font-size: 13px; opacity: 0.92; }
+        .scan-confirm { display: none; position: absolute; inset: 0; background: rgba(11,17,32,0.96); padding: 24px 20px; align-items: center; justify-content: center; }
+        .scan-confirm.show { display: flex; }
+        .confirm-box { background: #fff; border-radius: 20px; padding: 26px 24px; width: 100%; max-width: 360px; text-align: center; }
+        .confirm-box .c-label { font-size: 13px; color: var(--muted); }
+        .confirm-box .c-num { font-size: 34px; font-weight: 800; margin: 8px 0 4px; letter-spacing: 2px; color: #1f2937; }
+        .confirm-box .c-raw { font-size: 12px; color: #94a3b8; word-break: break-all; margin-bottom: 20px; white-space: pre-wrap; }
+        .confirm-box .btn { width: 100%; margin-top: 10px; }
+        .scan-bottom { width: 100%; display: flex; gap: 10px; padding: 14px 16px 0; }
+        .scan-bottom .btn { flex: 1; padding: 12px 8px; font-size: 14px; }
+        .scan-bottom .btn-ghost { background: rgba(255,255,255,0.12); color: #fff; border: none; box-shadow: none; }
+        .toast { position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px); background: rgba(17,24,39,0.94); color: #fff; border-radius: 12px; padding: 11px 18px; font-size: 14px; max-width: calc(100% - 48px); z-index: 1200; opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease; }
+        .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <header class="topbar">
+            <button class="icon-btn" id="settingsBtn" aria-label="服务设置" title="服务设置">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            </button>
+            <div class="top-title">7MA 用车助手 <span id="connDot"></span></div>
+            <div class="icon-spacer"></div>
+        </header>
+
+        <main class="view active" id="homeView">
+            <section class="hero">
+                <h2>扫码即可用车</h2>
+                <p id="serverInfo">尚未配置服务地址</p>
+            </section>
+            <section class="card scan-card" id="scanCard" role="button" tabindex="0">
+                <div class="card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><path d="M14 7h1M17 7h1M14 17h1M17 17h1"></path></svg>
+                </div>
+                <div class="card-body">
+                    <div class="card-title">扫码用车</div>
+                    <div class="card-desc">扫描车身上的二维码，自动识别车辆编号并下单</div>
+                </div>
+                <div class="card-arrow">&#8250;</div>
+            </section>
+            <section class="card input-card">
+                <div class="card-title">输入车辆编号</div>
+                <div class="input-row">
+                    <input id="manualInput" type="text" inputmode="numeric" autocomplete="off" placeholder="请输入单车编号，如 123456">
+                    <button class="btn" id="manualBtn">下单</button>
+                </div>
+                <div class="field-error" id="manualError">请输入车辆编号后再下单。</div>
+            </section>
+            <section class="history" id="historyWrap" hidden>
+                <div class="history-head">最近订单 <span>点击记录可再次下单</span></div>
+                <ul class="history-list" id="historyList"></ul>
+            </section>
+            <footer class="disclaimer">仅供技术学习 · 请遵守平台规则 · 风险自负</footer>
+        </main>
+
+        <main class="view" id="resultView">
+            <section class="card result-card">
+                <div class="result-icon ok" id="resultIcon">&#10003;</div>
+                <h2 class="result-title ok" id="resultTitle">下单成功</h2>
+                <p class="result-num" id="resultNum"></p>
+                <div class="result-msg" id="resultMsg"></div>
+                <div class="result-actions">
+                    <button class="btn btn-ghost" id="backHomeBtn">返回</button>
+                    <button class="btn" id="retryBtn">再次下单</button>
+                </div>
+            </section>
+        </main>
+
+        <div class="overlay" id="loadingLayer">
+            <div class="loading-card">
+                <div class="spinner"></div>
+                <p class="t">正在下单，请耐心等待</p>
+                <p class="s">若当前无可用账号，系统将等待有账号还车后自动下单（最多约 2 分钟）</p>
+            </div>
+        </div>
+
+        <div class="overlay" id="settingsLayer">
+            <div class="modal-card">
+                <button class="modal-x" id="settingsClose" aria-label="关闭">&#10005;</button>
+                <div class="onboarding-badge" id="onboardingBadge" hidden>首次使用：请填服务地址与 API 密钥（可不填先浏览，下单时会提示）</div>
+                <h3 id="settingsTitle">服务设置</h3>
+                <p class="modal-sub">域名与 API 密钥保存在本机，不会上传。</p>
+                <div class="modal-field">
+                    <label for="setDomain">服务地址（域名）</label>
+                    <input id="setDomain" type="text" autocomplete="off" placeholder="http://192.168.1.5:8888 或 https://7ma.example.com">
+                    <div class="modal-tip">支持 http/https；手机与本机同一网络时可填局域网地址</div>
+                </div>
+                <div class="modal-field">
+                    <label for="setApiKey">API 密钥</label>
+                    <input id="setApiKey" type="password" autocomplete="off" placeholder="在管理后台【设置】→【API 密钥】中查看">
+                    <div class="modal-tip">获取位置：服务地址 /admin →「设置」→「API 密钥」</div>
+                </div>
+                <div class="status-line" id="statusLine"></div>
+                <div class="modal-actions">
+                    <button class="btn btn-ghost" id="testBtn">测试连接</button>
+                    <button class="btn" id="saveBtn">保存</button>
+                </div>
+                <div class="modal-foot">
+                    <span>仅保存在本设备</span>
+                    <button id="clearBtn">清除本地配置</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="overlay scan-layer" id="scanLayer">
+            <div class="scan-top">
+                <button class="close" id="scanClose">&#10005;</button>
+                <span class="title">扫码用车</span>
+                <span class="close" style="visibility:hidden">&#10005;</span>
+            </div>
+            <div class="scan-stage-wrap">
+                <video id="scanVideo" playsinline muted></video>
+                <div class="scan-frame">
+                    <i class="corner tl"></i><i class="corner tr"></i><i class="corner bl"></i><i class="corner br"></i>
+                </div>
+                <div class="scan-hint">将二维码对准框内，自动识别</div>
+                <div class="scan-confirm" id="scanConfirm">
+                    <div class="confirm-box">
+                        <div class="c-label">识别结果</div>
+                        <div class="c-num" id="confirmNum"></div>
+                        <div class="c-raw" id="confirmRaw"></div>
+                        <button class="btn" id="confirmOrderBtn">确认下单</button>
+                        <button class="btn btn-ghost" id="rescanBtn">重新扫码</button>
+                    </div>
+                </div>
+            </div>
+            <div class="scan-bottom">
+                <button class="btn btn-ghost" id="pickBtn">相册/拍照</button>
+                <button class="btn btn-ghost" id="scanManualBtn">手动输入</button>
+            </div>
+        </div>
+
+        <input type="file" id="fileCamera" accept="image/*" capture="environment" hidden>
+        <input type="file" id="fileAlbum" accept="image/*" hidden>
+        <div class="toast" id="toast"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/jsqr.min.js') }}"></script>
+    <script>
+        window.JSQR_CDN = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js';
+    </script>
+    <script>
+        'use strict';
+        var KEY_PREFIX = '7ma_app_';
+
+        function $(id) { return document.getElementById(id); }
+        function getConfig() {
+            return {
+                domain: localStorage.getItem(KEY_PREFIX + 'domain') || '',
+                apiKey: localStorage.getItem(KEY_PREFIX + 'apiKey') || ''
+            };
+        }
+        function saveConfig(domain, apiKey) {
+            localStorage.setItem(KEY_PREFIX + 'domain', domain);
+            localStorage.setItem(KEY_PREFIX + 'apiKey', apiKey);
+        }
+        function normalizeBase(raw) {
+            var s = String(raw || '').trim().replace(/\/+$/g, '');
+            if (!s) return '';
+            if (!/^https?:\/\//i.test(s)) {
+                var ipOrLocal = /^\d{1,3}(\.\d{1,3}){3}(:\d+)?$/.test(s) ||
+                                /^localhost(:\d+)?$/i.test(s) || /^127\./.test(s);
+                s = (ipOrLocal ? 'http://' : 'https://') + s;
+            }
+            return s.replace(/\/+$/g, '');
+        }
+        function getBase() { return normalizeBase(getConfig().domain); }
+
+        var toastTimer = null;
+        function toast(msg) {
+            var el = $('toast');
+            el.textContent = msg;
+            el.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(function () { el.classList.remove('show'); }, 2600);
+        }
+        function showView(id) {
+            var views = document.querySelectorAll('.view');
+            for (var i = 0; i < views.length; i++) views[i].classList.remove('active');
+            $(id).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+        function setServerInfo() {
+            var cfg = getConfig();
+            var line = $('serverInfo');
+            var dot = $('connDot');
+            if (!cfg.domain) {
+                line.textContent = '尚未配置服务地址，点击左上角图标进行配置';
+                dot.className = '';
+                return;
+            }
+            line.textContent = cfg.domain + '（密钥已配置）';
+            dot.className = 'ok';
+        }
+
+        function extractVehicleNumber(raw) {
+            if (!raw) return '';
+            var t = String(raw).trim();
+            try {
+                if (t.indexOf('?') >= 0) {
+                    var qs = t.slice(t.indexOf('?') + 1);
+                    var params = new URLSearchParams(qs);
+                    var keys = ['randnum', 'randNum', 'rand_num', 'rand', 'code', 'car_no', 'car_number', 'carNumber', 'bike_number', 'bikeNumber', 'num', 'number', 'id', 'qr', 'device', 'device_no', 'deviceId'];
+                    for (var i = 0; i < keys.length; i++) {
+                        var v = (params.get(keys[i]) || '').trim();
+                        if (v) return v;
+                    }
+                    var digit = '';
+                    params.forEach(function (val) {
+                        if (!digit && /^\d+$/.test(val.trim())) digit = val.trim();
+                    });
+                    if (digit) return digit;
+                }
+                var m = t.match(/randnum[=:/\s](\d+)/i);
+                if (m) return m[1];
+                var parts = t.split(/[\/?#]/).filter(Boolean);
+                var last = parts.length ? parts[parts.length - 1] : '';
+                if (/^\d+$/.test(last)) return last;
+                if (/^\d+$/.test(t)) return t;
+                var m2 = t.match(/(\d{4,})/);
+                if (m2) return m2[1];
+            } catch (e) { /* ignore */ }
+            return '';
+        }
+
+        function pushHistory(number, ok, msg) {
+            var list = [];
+            try { list = JSON.parse(localStorage.getItem(KEY_PREFIX + 'history')) || []; } catch (e) { list = []; }
+            list.unshift({
+                num: number,
+                ok: !!ok,
+                msg: (msg || (ok ? '下单成功' : '下单失败')).slice(0, 60),
+                time: new Date().toLocaleString('zh-CN', { hour12: false })
+            });
+            if (list.length > 20) list.length = 20;
+            localStorage.setItem(KEY_PREFIX + 'history', JSON.stringify(list));
+            renderHistory();
+        }
+        function renderHistory() {
+            var wrap = $('historyWrap'), ul = $('historyList');
+            var list = [];
+            try { list = JSON.parse(localStorage.getItem(KEY_PREFIX + 'history')) || []; } catch (e) { list = []; }
+            if (!list.length) { wrap.hidden = true; return; }
+            wrap.hidden = false;
+            ul.innerHTML = '';
+            list.forEach(function (item) {
+                var li = document.createElement('li');
+                li.innerHTML = '<span class="h-num">' + item.num + '</span>' +
+                    '<span class="h-info"><span class="h-msg">' + item.msg + '</span><span class="h-time">' + item.time + '</span></span>' +
+                    '<span class="h-status ' + (item.ok ? 'ok' : 'bad') + '">' + (item.ok ? '成功' : '失败') + '</span>';
+                li.addEventListener('click', function () {
+                    $('manualInput').value = item.num;
+                    $('manualInput').focus();
+                    toast('已将编号 ' + item.num + ' 填入输入框');
+                });
+                ul.appendChild(li);
+            });
+        }
+        function showResult(number, ok, msg) {
+            $('resultIcon').className = 'result-icon ' + (ok ? 'ok' : 'bad');
+            $('resultTitle').className = 'result-title ' + (ok ? 'ok' : 'bad');
+            $('resultIcon').textContent = ok ? '\u2713' : '!';
+            $('resultTitle').textContent = ok ? '下单成功' : '下单失败';
+            $('resultNum').innerHTML = '车辆编号：<b>' + number + '</b>';
+            $('resultMsg').textContent = msg;
+            showView('resultView');
+        }
+        async function placeOrder(number) {
+            var cfg = getConfig();
+            var base = getBase();
+            if (!cfg.domain || !cfg.apiKey) {
+                failResult(number, '尚未填写服务地址或 API 密钥，请点击左上角小图标设置后再下单');
+                return;
+            }
+            if (!base) { toast('服务地址格式不正确'); return; }
+            $('loadingLayer').classList.add('show');
+            var data = {}, res = null;
+            try {
+                res = await fetch(base + '/api/v1/order', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-API-Key': cfg.apiKey },
+                    body: JSON.stringify({ bike_number: number })
+                });
+                try { data = await res.json(); } catch (e2) { data = {}; }
+            } catch (e) {
+                $('loadingLayer').classList.remove('show');
+                failResult(number, '网络错误：无法连接服务器，请检查服务地址或网络后重试');
+                return;
+            }
+            $('loadingLayer').classList.remove('show');
+            if (res && res.status === 401) {
+                failResult(number, 'API 密钥无效或已更换，请点击左上角图标重新配置');
+                return;
+            }
+            if (res && res.ok && data.ok) {
+                var msg = data.message || '下单成功';
+                if (data.unlock_result) msg += '\n开锁结果：' + data.unlock_result;
+                if (data.return_result) msg += '\n还车结果：' + data.return_result;
+                pushHistory(number, true, msg.split('\n')[0]);
+                showResult(number, true, msg);
+            } else {
+                var em = (data && (data.error || data.message)) || '下单失败，请稍后重试';
+                pushHistory(number, false, em);
+                showResult(number, false, em);
+            }
+        }
+        function failResult(number, msg) {
+            pushHistory(number, false, msg);
+            showResult(number, false, msg);
+        }
+    </script>
+    <script>
+        var onboarding = false;
+        function openSettings(first) {
+            onboarding = !!first;
+            var cfg = getConfig();
+            $('setDomain').value = cfg.domain;
+            $('setApiKey').value = cfg.apiKey;
+            $('settingsTitle').textContent = onboarding ? '首次使用 · 服务设置' : '服务设置';
+            $('onboardingBadge').hidden = !onboarding;
+            $('statusLine').className = 'status-line';
+            $('settingsLayer').classList.add('show');
+            if (onboarding || !cfg.domain) $('setDomain').focus();
+        }
+        function closeSettings() { $('settingsLayer').classList.remove('show'); }
+
+        $('settingsBtn').addEventListener('click', function () { openSettings(false); });
+        $('settingsClose').addEventListener('click', function () {
+            closeSettings();
+            if (!getConfig().domain || !getConfig().apiKey) toast('请先配置服务地址与 API 密钥');
+        });
+
+        $('testBtn').addEventListener('click', function () {
+            var base = normalizeBase($('setDomain').value);
+            var key = $('setApiKey').value.trim();
+            var line = $('statusLine');
+            if (!base || !key) {
+                line.className = 'status-line bad';
+                line.textContent = '请先填写服务地址与 API 密钥';
+                return;
+            }
+            line.className = 'status-line';
+            line.textContent = '正在测试连接…';
+            var ctrl = new AbortController();
+            var timer = setTimeout(function () { ctrl.abort(); }, 9000);
+            fetch(base + '/api/v1/status', { method: 'GET', headers: { 'X-API-Key': key }, signal: ctrl.signal })
+                .then(function (res) { return res.json().catch(function () { return {}; }).then(function (data) { return { res: res, data: data }; }); })
+                .then(function (out) {
+                    clearTimeout(timer);
+                    if (out.res.ok && out.data.ok) {
+                        line.className = 'status-line ok';
+                        line.textContent = '连接成功：共 ' + (out.data.authorizations || 0) + ' 个可用账号';
+                    } else if (out.res.status === 401) {
+                        line.className = 'status-line bad';
+                        line.textContent = '连接失败：API 密钥无效，请检查是否复制正确';
+                    } else {
+                        line.className = 'status-line bad';
+                        line.textContent = '连接失败：' + ((out.data && out.data.error) || ('HTTP ' + out.res.status));
+                    }
+                })
+                .catch(function (err) {
+                    clearTimeout(timer);
+                    line.className = 'status-line bad';
+                    line.textContent = (err && err.name === 'AbortError')
+                        ? '连接超时：请检查地址、端口与网络'
+                        : '无法连接：' + ((err && err.message) || '请求异常，请检查域名是否已加 http/https 前缀');
+                });
+        });
+        $('saveBtn').addEventListener('click', function () {
+            var domain = normalizeBase($('setDomain').value);
+            var key = $('setApiKey').value.trim();
+            if (!domain || !key) { toast('请同时填写服务地址与 API 密钥'); return; }
+            saveConfig(domain, key);
+            closeSettings();
+            setServerInfo();
+            toast('配置已保存');
+        });
+        $('clearBtn').addEventListener('click', function () {
+            if (!confirm('确定清除本机保存的服务配置吗？')) return;
+            localStorage.removeItem(KEY_PREFIX + 'domain');
+            localStorage.removeItem(KEY_PREFIX + 'apiKey');
+            localStorage.removeItem(KEY_PREFIX + 'history');
+            location.reload();
+        });
+    </script>
+    <script>
+        var video = $('scanVideo');
+        var stream = null;
+        var scanning = false;
+        var rafId = 0;
+        var detector = null;
+        try { detector = (window.BarcodeDetector && BarcodeDetector.prototype.detect) ? new BarcodeDetector({ formats: ['qr_code'] }) : null; }
+        catch (e) { detector = null; }
+
+        function loadJsQR(cb) {
+            if (typeof jsQR !== 'undefined') { if (cb) cb(); return; }
+            var s = document.createElement('script');
+            s.src = window.JSQR_CDN;
+            s.onload = function () { if (cb) cb(); };
+            s.onerror = function () { if (cb) cb(); };
+            document.body.appendChild(s);
+        }
+
+        function stopCamera() {
+            scanning = false;
+            if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+            if (stream) {
+                stream.getTracks().forEach(function (t) { t.stop(); });
+                stream = null;
+            }
+            video.srcObject = null;
+        }
+        function stopScan() {
+            stopCamera();
+            $('scanLayer').classList.remove('show');
+            $('scanConfirm').classList.remove('show');
+        }
+
+        function showConfirm(raw, number) {
+            stopCamera();
+            $('confirmNum').textContent = number;
+            $('confirmRaw').textContent = raw;
+            $('confirmOrderBtn').disabled = !!number ? false : true;
+            $('scanConfirm').classList.add('show');
+        }
+        function handleScanText(raw) {
+            var number = extractVehicleNumber(raw);
+            if (!number) {
+                showConfirm('未识别到车辆编号，请手动输入', '未识别');
+                return;
+            }
+            showConfirm(raw, number);
+        }
+
+        function scanTick() {
+            if (!scanning) return;
+            if (detector) {
+                detector.detect(video).then(function (codes) {
+                    if (!scanning) return;
+                    for (var i = 0; i < codes.length; i++) {
+                        if (codes[i] && codes[i].rawValue && codes[i].rawValue.trim()) {
+                            handleScanText(codes[i].rawValue.trim());
+                            return;
+                        }
+                    }
+                    rafId = requestAnimationFrame(scanTick);
+                }).catch(function () { rafId = requestAnimationFrame(scanTick); });
+                return;
+            }
+            if (typeof jsQR === 'undefined' || video.readyState < 2) {
+                rafId = requestAnimationFrame(scanTick);
+                return;
+            }
+            var w = Math.min(video.videoWidth, 640);
+            var h = Math.min(video.videoHeight, 480);
+            if (!w || !h) { rafId = requestAnimationFrame(scanTick); return; }
+            var canvas = document.createElement('canvas');
+            canvas.width = w; canvas.height = h;
+            var ctx = canvas.getContext('2d', { willReadFrequently: true });
+            ctx.drawImage(video, 0, 0, w, h);
+            var img = ctx.getImageData(0, 0, w, h);
+            var code = jsQR(img.data, img.width, img.height, { inversionAttempts: 'dontInvert' });
+            if (code && code.data && code.data.trim()) { handleScanText(code.data.trim()); return; }
+            rafId = requestAnimationFrame(scanTick);
+        }
+
+        function startCamera() {
+            $('scanConfirm').classList.remove('show');
+            $('scanLayer').classList.add('show');
+            scanning = true;
+            loadJsQR(function () {});
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                toast('当前环境不支持摄像头，请使用「相册/拍照」或手动输入');
+                return;
+            }
+            navigator.mediaDevices.getUserMedia({
+                video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            }).then(function (s) {
+                stream = s;
+                video.srcObject = s;
+                video.play().catch(function () {});
+                rafId = requestAnimationFrame(scanTick);
+            }).catch(function (e) {
+                toast('无法调用摄像头（需 HTTPS 或已授权）：' + ((e && e.message) || '权限被拒绝'));
+            });
+        }
+
+        function decodeImageFile(input) {
+            var file = input.files && input.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function () {
+                var img = new Image();
+                img.onload = function () {
+                    var canvas = document.createElement('canvas');
+                    var scale = Math.min(1, 1200 / Math.max(img.naturalWidth, img.naturalHeight));
+                    canvas.width = Math.round(img.naturalWidth * scale);
+                    canvas.height = Math.round(img.naturalHeight * scale);
+                    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    var finish = function (raw) {
+                        if (!raw) {
+                            toast('未识别到二维码，请重试或手动输入');
+                            $('scanLayer').classList.add('show');
+                            return;
+                        }
+                        handleScanText(raw);
+                    };
+                    if (detector) {
+                        detector.detect(canvas).then(function (res) { finish(res.length ? res[0].rawValue : ''); }).catch(function () { finish(''); });
+                    } else if (typeof jsQR !== 'undefined') {
+                        var d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        var code = jsQR(d.data, d.width, d.height);
+                        finish(code ? code.data : '');
+                    } else {
+                        loadJsQR(function () {
+                            if (typeof jsQR === 'undefined') { finish(''); return; }
+                            var d = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                            var code = jsQR(d.data, d.width, d.height);
+                            finish(code ? code.data : '');
+                        });
+                    }
+                };
+                img.src = reader.result;
+            };
+            reader.readAsDataURL(file);
+            input.value = '';
+        }
+
+        $('scanCard').addEventListener('click', startCamera);
+        $('scanCard').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); startCamera(); }
+        });
+        $('scanClose').addEventListener('click', stopScan);
+        $('rescanBtn').addEventListener('click', function () { startCamera(); });
+        $('confirmOrderBtn').addEventListener('click', function () {
+            var number = $('confirmNum').textContent.trim();
+            if (!number || number === '未识别') { toast('未能识别车辆编号'); return; }
+            stopScan();
+            placeOrder(number);
+        });
+        $('pickBtn').addEventListener('click', function () {
+            stopCamera();
+            if (/iPhone|iPad/i.test(navigator.userAgent)) {
+                $('fileCamera').click();
+            } else {
+                $('fileAlbum').click();
+            }
+            $('scanLayer').classList.remove('show');
+        });
+        $('scanManualBtn').addEventListener('click', function () {
+            stopScan();
+            $('manualInput').focus();
+        });
+        $('fileCamera').addEventListener('change', function () { decodeImageFile(this); });
+        $('fileAlbum').addEventListener('change', function () { decodeImageFile(this); });
+
+        $('manualBtn').addEventListener('click', function () {
+            var input = $('manualInput');
+            var err = $('manualError');
+            var val = input.value.trim();
+            if (!val) {
+                err.textContent = '请输入车辆编号后再下单。';
+                err.classList.add('show');
+                input.focus();
+                return;
+            }
+            var extracted = extractVehicleNumber(val);
+            if ((val.indexOf('://') >= 0 || val.indexOf('?') >= 0) && extracted) {
+                input.value = extracted;
+                err.classList.remove('show');
+                toast('已从链接中提取编号：' + extracted);
+                val = extracted;
+            }
+            err.classList.remove('show');
+            placeOrder(val);
+        });
+        $('manualInput').addEventListener('input', function () { $('manualError').classList.remove('show'); });
+        $('manualInput').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); $('manualBtn').click(); }
+        });
+        $('backHomeBtn').addEventListener('click', function () { $('manualBtn').disabled = false; showView('homeView'); });
+        $('retryBtn').addEventListener('click', function () {
+            var num = $('resultNum').textContent.replace(/[^0-9]/g, '');
+            showView('homeView');
+            if (num) placeOrder(num);
+        });
+
+        function init() {
+            setServerInfo();
+            renderHistory();
+            var cfg = getConfig();
+            if (!cfg.domain && (location.protocol === 'http:' || location.protocol === 'https:')) {
+                $('setDomain').value = location.origin;
+            }
+            if (!cfg.domain || !cfg.apiKey) openSettings(true);
+        }
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

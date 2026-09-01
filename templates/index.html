@@ -60,6 +60,31 @@
             transition: border-color 0.15s ease, box-shadow 0.15s ease;
         }
         input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.14); background: #fff; }
+
+        .field-error {
+            display: none;
+            margin: -6px 0 12px;
+            padding: 9px 12px;
+            border-radius: 9px;
+            background: #fdeaea;
+            border: 1px solid #f5c2c2;
+            color: #b91c1c;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .server-error {
+            display: block;
+            margin: 0 0 14px;
+            padding: 11px 13px;
+            border-radius: 9px;
+            background: #fdeaea;
+            border: 1px solid #f5c2c2;
+            color: #b91c1c;
+            font-size: 14px;
+            font-weight: 600;
+            text-align: center;
+        }
         button {
             width: 100%;
             padding: 11px;
@@ -76,6 +101,36 @@
         .admin-link { text-align: center; margin-top: 16px; font-size: 13px; }
         .admin-link a { color: #7c8894; text-decoration: none; }
         .admin-link a:hover { color: var(--primary); }
+        .loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15,23,42,0.72);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 999;
+        }
+        .loading-overlay.show { display: flex; }
+        .loading-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 30px 36px;
+            text-align: center;
+            box-shadow: 0 22px 60px rgba(0,0,0,0.4);
+            max-width: 320px;
+        }
+        .spinner {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto 16px;
+            border: 4px solid #e2e8f0;
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-card p { margin: 0; color: #334155; font-size: 16px; font-weight: 600; }
+        .loading-card .sub { margin-top: 6px; color: #7c8894; font-size: 13px; font-weight: 400; }
     </style>
 </head>
 <body>
@@ -83,12 +138,60 @@
         <div class="mark">7M</div>
         <h1>欢迎使用 7MA 出行</h1>
         <div class="announcement">公告：欢迎使用自助服务平台，请按提示输入单车编号并下单。</div>
+        {% if error %}
+        <div class="server-error">{{ error }}</div>
+        {% endif %}
         <form action="/process" method="post">
             <label for="bikeNumber">请输入单车编号</label>
             <input type="text" id="bikeNumber" name="bike_number" required autofocus>
+            <div class="field-error" id="bikeNumberError">请输入车辆编号（必须填写）。</div>
             <button type="submit">下单</button>
         </form>
         <div class="admin-link"><a href="/admin">后台管理</a></div>
     </div>
+
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-card">
+            <div class="spinner"></div>
+            <p>正在下单，请耐心等待</p>
+            <p class="sub">若当前无可用账号，系统将等待有账号还车后自动下单（最多约 2 分钟）</p>
+        </div>
+    </div>
+
+    <script>
+        var form = document.querySelector('form');
+        var overlay = document.getElementById('loadingOverlay');
+        var bikeInput = document.getElementById('bikeNumber');
+        var bikeError = document.getElementById('bikeNumberError');
+
+        function showError(msg) {
+            if (!bikeError) return;
+            bikeError.textContent = msg;
+            bikeError.style.display = 'block';
+            if (bikeInput) bikeInput.focus();
+        }
+        function hideError() {
+            if (bikeError) bikeError.style.display = 'none';
+        }
+
+        if (bikeInput) {
+            bikeInput.addEventListener('input', hideError);
+        }
+
+        form.addEventListener('submit', function (e) {
+            var val = bikeInput ? (bikeInput.value || '').trim() : '';
+            if (!val) {
+                e.preventDefault();
+                showError('请输入车辆编号，不能为空后再下单');
+                return;
+            }
+            hideError();
+            overlay.classList.add('show');
+            // 只禁用提交按钮，保留输入框（disabled 控件不会随表单提交，
+            // 会导致后端收不到单车编号）
+            form.querySelector('button[type=submit]').disabled = true;
+            if (bikeInput) bikeInput.readOnly = true;
+        });
+    </script>
 </body>
 </html>

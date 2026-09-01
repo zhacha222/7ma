@@ -27,6 +27,8 @@
                 <input type="hidden" name="selected" id="batchSelected">
                 <button type="submit" class="btn success">批量自动认证</button>
             </form>
+            <button type="button" class="btn small danger" onclick="submitBatchDelete()">批量删除</button>
+            <form id="batchDeleteForm" action="/admin/accounts/batch-delete" method="post" style="display:none;"></form>
             <a href="/admin/accounts?refresh=1" class="btn secondary">刷新账户资产</a>
             {% endif %}
             <button type="button" class="btn" onclick="openAdd()">添加 Token</button>
@@ -35,44 +37,96 @@
     </div>
 
     {% if accounts %}
-    <table>
+    <div style="overflow-x:auto;">
+    <table id="accountsTable" class="accounts-table">
         <thead>
             <tr>
-                <th style="width:40px;">选择</th>
-                <th style="width:48px;">序号</th>
-                <th>Authorization</th>
-                <th>姓名</th>
-                <th>学校</th>
-                <th>手机号</th>
-                <th>骑行卡资产</th>
-                <th>认证状态</th>
+                <th style="width:38px;text-align:center;"><input type="checkbox" id="selectAllHead" title="全选当前页"></th>
+                <th data-col="index">
+                    <div class="th-row"><span>序号</span><button type="button" class="sort-btn" data-col="index" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="index" placeholder="序号">
+                </th>
+                <th data-col="mask">
+                    <div class="th-row"><span>Authorization</span><button type="button" class="sort-btn" data-col="mask" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="mask" placeholder="搜索 Token">
+                </th>
+                <th data-col="name">
+                    <div class="th-row"><span>姓名</span><button type="button" class="sort-btn" data-col="name" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="name" placeholder="搜索姓名">
+                </th>
+                <th data-col="school">
+                    <div class="th-row"><span>学校</span><button type="button" class="sort-btn" data-col="school" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="school" placeholder="搜索学校">
+                </th>
+                <th data-col="phone">
+                    <div class="th-row"><span>手机号</span><button type="button" class="sort-btn" data-col="phone" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="phone" placeholder="搜索手机号">
+                </th>
+                <th data-col="credit">
+                    <div class="th-row"><span>信用积分</span><button type="button" class="sort-btn" data-col="credit" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="credit" placeholder="信用分">
+                </th>
+                <th data-col="points">
+                    <div class="th-row"><span>当前积分</span><button type="button" class="sort-btn" data-col="points" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="points" placeholder="积分">
+                </th>
+                <th data-col="status">
+                    <div class="th-row"><span>认证状态</span><button type="button" class="sort-btn" data-col="status" title="点击排序">⇅</button></div>
+                    <select class="filter-input filter-select" data-col="status">
+                        <option value="">全部</option>
+                        <option value="失效">失效</option>
+                        <option value="已认证">已认证</option>
+                        <option value="审核中">审核中</option>
+                        <option value="未认证">未认证</option>
+                        <option value="查询失败">查询失败</option>
+                    </select>
+                </th>
                 <th style="width:250px;">操作</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="accountsBody">
             {% for account in accounts %}
-            <tr>
-                <td><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
-                <td>{{ loop.index }}</td>
+            {% set _name = account.info.username if account.info.ok else (account.local_profile.username if account.local_profile and account.local_profile.username else '') %}
+            {% set _school = account.info.school_name if account.info.ok else (account.local_profile.school_name if account.local_profile and account.local_profile.school_name else '') %}
+            {% set _phone = account.info.show_phone if account.info.ok else (account.local_profile.phone if account.local_profile and account.local_profile.phone else '') %}
+            {% if account.is_invalid %}
+            {% set _status = '失效' %}
+            {% elif account.cert.ok and account.cert.certified %}
+            {% set _status = '已认证' %}
+            {% elif account.cert.ok and account.cert.reviewing %}
+            {% set _status = '审核中' %}
+            {% elif account.cert.ok %}
+            {% set _status = '未认证' %}
+            {% else %}
+            {% set _status = '查询失败' %}
+            {% endif %}
+            <tr data-index="{{ loop.index }}" data-mask="{{ account.masked }}" data-name="{{ _name }}" data-school="{{ _school }}" data-phone="{{ _phone }}" data-credit="{{ account.credit.credit_scores if account.credit and account.credit.ok and account.credit.credit_scores is not none else '' }}" data-points="{{ account.info.points if account.info.ok and account.info.points is not none else '' }}" data-status="{{ _status }}">
+                <td style="text-align:center;"><input type="checkbox" class="row-select" value="{{ account.index }}"></td>
+                <td style="font-size:13px;">{{ loop.index }}</td>
                 <td style="word-break:break-all;">
                     <div class="mono" style="font-size:13px;">{{ account.masked }}</div>
                     {% if not account.info.ok %}
                     <div style="color:#dc2626;font-size:12px;">{{ account.info.error }}</div>
                     {% endif %}
                 </td>
-                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.username or '—' }}{% else %}—{% endif %}</td>
-                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.school_name or '—' }}{% else %}—{% endif %}</td>
-                <td style="font-size:13px;">{% if account.info.ok %}{{ account.info.show_phone or '—' }}{% else %}—{% endif %}</td>
-                <td style="font-size:13px;">
-                    {% if account.cards %}
-                    {% for card in account.cards %}
-                    <div style="padding:3px 0;">
-                        <div>{{ card.name }}</div>
-                        <div style="color:#7c8894;">{{ card.carmodel_name }} · 剩余 {{ card.remaining }} 次 / 共 {{ card.times }} 次</div>
-                    </div>
-                    {% endfor %}
+                <td style="font-size:13px;">{{ _name }}</td>
+                <td style="font-size:13px;">{{ _school }}</td>
+                <td style="font-size:13px;white-space:nowrap;">
+                    {{ _phone }}
+                    {% if account.is_invalid %}<span class="badge danger" style="margin-left:6px;">失效</span>{% endif %}
+                </td>
+                <td style="text-align:center;font-size:13px;">
+                    {% if account.credit and account.credit.ok and account.credit.credit_scores is not none %}
+                    <div>{{ account.credit.credit_scores }}</div>
                     {% else %}
-                    <span style="color:#9aa3af;">无骑行卡</span>
+                    <span style="color:#9aa3af;">-</span>
+                    {% endif %}
+                </td>
+                <td style="text-align:center;font-size:13px;">
+                    {% if account.info.ok and account.info.points is not none %}
+                    <div class="stat">{{ account.info.points }}</div>
+                    {% else %}
+                    <span style="color:#9aa3af;">-</span>
                     {% endif %}
                 </td>
                 <td style="font-size:13px;">
@@ -107,8 +161,22 @@
             {% endfor %}
         </tbody>
     </table>
+    </div>
+
+    <div class="page-bar">
+        <label class="page-size-label">每页
+            <select id="pageSizeSelect" class="page-size-select">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            条
+        </label>
+        <div id="pagination" class="pagination"></div>
+    </div>
+
     <div style="margin-top:12px;">
-        <form action="/admin/clear" method="post" onsubmit="return confirm('确认清空所有 Authorization？');">
+        <form action="/admin/clear" method="post" onsubmit="return confirm('确定清空所有 Authorization？');">
             <button type="submit" class="btn small danger">清空全部</button>
         </form>
     </div>
@@ -121,14 +189,14 @@
 <div class="modal-overlay" id="addModal">
     <div class="modal">
         <div class="modal-head">
-            <h3>添加 Token</h3>
+            <h3>添加 Authorization</h3>
             <button type="button" class="modal-close" onclick="closeAdd()">×</button>
         </div>
         <div class="modal-body">
-            <form action="/admin/add" method="post">
-                <label for="authorization">单个 Authorization</label>
-                <input type="text" id="authorization" name="authorization" placeholder="粘贴单个 Authorization（例如 Bearer eyJ...）">
-                <button type="submit" class="btn block">添加</button>
+            <form action="/admin/import" method="post">
+                <label>单个 Authorization</label>
+                <input type="text" name="authorization" placeholder="粘贴单个 Token" style="width:100%;">
+                <button type="submit" class="btn block" style="margin-top:10px;">添加</button>
             </form>
             <div class="modal-divider"><span>或批量导入</span></div>
             <form action="/admin/import" method="post">
@@ -155,6 +223,36 @@
 </div>
 
 <style>
+    .accounts-table { min-width: 1180px; }
+    .accounts-table th { padding: 10px 11px; vertical-align: top; }
+    .th-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; margin-bottom: 6px; white-space: nowrap; }
+    .sort-btn {
+        border: none;
+        background: #eef2f7;
+        color: #5b6575;
+        width: 26px;
+        height: 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .sort-btn:hover { background: #dfe6ef; }
+    .sort-btn.active { background: var(--primary); color: #fff; }
+    .filter-input {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 12.5px;
+        background: #fbfcfe;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        margin: 0;
+        min-width: 110px;
+    }
+    .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); background: #fff; }
+    .filter-select { appearance: auto; }
+    .accounts-table tbody tr.hidden { display: none; }
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-overlay.open { display: flex; }
     .modal { width: 520px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
@@ -166,6 +264,34 @@
     .modal-divider { display: flex; align-items: center; gap: 10px; color: #9aa3af; font-size: 12px; margin: 14px 0 12px; }
     .modal-divider::before, .modal-divider::after { content: ""; flex: 1; height: 1px; background: #e8edf5; }
     .btn.block { width: 100%; }
+    .page-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .page-size-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #55606e; font-weight: 600; }
+    .page-size-select {
+        padding: 6px 8px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 13px;
+        background: #fff;
+        color: #1f2937;
+        cursor: pointer;
+    }
+    .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .page-btn {
+        border: 1px solid #dbe2ec;
+        background: #fff;
+        color: #445066;
+        border-radius: 7px;
+        padding: 6px 11px;
+        font-size: 12.5px;
+        cursor: pointer;
+        line-height: 1.2;
+        min-width: 32px;
+        text-align: center;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .pagination-info { color: var(--muted); font-size: 12.5px; margin-left: 8px; white-space: nowrap; }
 </style>
 
 <script>
@@ -181,30 +307,165 @@
     document.getElementById('phoneModal').addEventListener('click', function (e) { if (e.target === this) closePhone(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeAdd(); closePhone(); } });
 
-    var selectAll = document.getElementById('selectAll');
-    var batchForm = document.getElementById('batchForm');
-    var rowSelects = function () { return Array.prototype.slice.call(document.querySelectorAll('.row-select')); };
-    function updateCount() {
-        var countEl = document.getElementById('selectedCount');
-        if (!countEl) return;
-        var checked = rowSelects().filter(function (c) { return c.checked; });
-        countEl.textContent = checked.length ? '已选 ' + checked.length + ' 个' : '未选择';
-        if (selectAll) {
-            var all = rowSelects();
-            selectAll.checked = all.length > 0 && checked.length === all.length;
-            selectAll.indeterminate = checked.length > 0 && checked.length < all.length;
-        }
+    var sortCol = 'index';
+    var sortDir = 'asc';
+    var tbody = document.getElementById('accountsBody');
+    var resultCount = document.getElementById('resultCount');
+    var paginationEl = document.getElementById('pagination');
+    var pageSizeSelect = document.getElementById('pageSizeSelect');
+    var pageSize = parseInt(localStorage.getItem('ops_pageSize_accounts') || '20', 10);
+    if ([20, 50, 100].indexOf(pageSize) === -1) pageSize = 20;
+    if (pageSizeSelect) pageSizeSelect.value = String(pageSize);
+    var page = 1;
+
+    function getRows() { return Array.prototype.slice.call(tbody.querySelectorAll('tr')); }
+    function visibleRows() { return getRows().filter(function (r) { return !r.classList.contains('hidden'); }); }
+    function readFilters() {
+        var filters = {};
+        document.querySelectorAll('.filter-input').forEach(function (input) { filters[input.dataset.col] = (input.value || '').trim().toLowerCase(); });
+        return filters;
     }
-    if (selectAll) {
-        selectAll.addEventListener('change', function () {
-            rowSelects().forEach(function (c) { c.checked = selectAll.checked; });
-            updateCount();
+    function rowMatches(row, filters) {
+        for (var col in filters) {
+            var value = filters[col];
+            if (!value) continue;
+            var cell = row.getAttribute('data-' + col) || '';
+            if (col === 'status' || col === 'index') {
+                if (String(cell).toLowerCase() !== value) return false;
+            } else if (cell.toLowerCase().indexOf(value) === -1) { return false; }
+        }
+        return true;
+    }
+    function sortRows(rows) {
+        rows.sort(function (a, b) {
+            var result;
+            if (sortCol === 'index' || sortCol === 'points' || sortCol === 'credit') {
+                result = (parseInt(a.getAttribute('data-' + sortCol) || '0', 10)) - (parseInt(b.getAttribute('data-' + sortCol) || '0', 10));
+            } else if (sortCol === 'status') {
+                var rank = { '失效': 0, '已认证': 4, '审核中': 3, '未认证': 2, '查询失败': 1 };
+                result = (rank[a.getAttribute('data-status')] || 0) - (rank[b.getAttribute('data-status')] || 0);
+            } else {
+                var av = a.getAttribute('data-' + sortCol) || ''; var bv = b.getAttribute('data-' + sortCol) || '';
+                result = av.localeCompare(bv, 'zh-CN', { numeric: true });
+            }
+            return sortDir === 'asc' ? result : -result;
+        });
+        return rows;
+    }
+    function buildPagination(totalPages, total) {
+        if (!paginationEl) return;
+        paginationEl.innerHTML = '';
+        function pageBtn(label, pg, active, disabled) {
+            var b = document.createElement('button');
+            b.className = 'page-btn' + (active ? ' active' : '');
+            b.textContent = label;
+            if (disabled) { b.disabled = true; }
+            else if (pg) { b.onclick = function () { page = pg; render(); }; }
+            return b;
+        }
+        paginationEl.appendChild(pageBtn('‹ 上一页', page - 1, false, page <= 1));
+        var start = Math.max(1, page - 2);
+        var end = Math.min(totalPages, start + 4);
+        start = Math.max(1, end - 4);
+        for (var p = start; p <= end; p++) paginationEl.appendChild(pageBtn(String(p), p, p === page, false));
+        paginationEl.appendChild(pageBtn('下一页 ›', page + 1, false, page >= totalPages));
+        var info = document.createElement('span');
+        info.className = 'pagination-info';
+        info.textContent = '共 ' + total + ' 个 · ' + pageSize + ' 条/页';
+        paginationEl.appendChild(info);
+    }
+    function render() {
+        var filters = readFilters();
+        var allRows = getRows();
+        var visibleRows = allRows.filter(function (r) { return rowMatches(r, filters); });
+        sortRows(visibleRows);
+        var totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        var start = (page - 1) * pageSize;
+        var end = Math.min(start + pageSize, visibleRows.length);
+        visibleRows.forEach(function (row, i) {
+            row.classList.toggle('hidden', !(i >= start && i < end));
+            tbody.appendChild(row);
+        });
+        allRows.forEach(function (row) { if (visibleRows.indexOf(row) === -1) row.classList.add('hidden'); });
+        if (resultCount) resultCount.textContent = '共 ' + visibleRows.length + ' 个';
+        buildPagination(totalPages, visibleRows.length);
+        updateSelection();
+    }
+    function getSelectedRows() { return getRows().filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; }); }
+    function syncSelectAll() {
+        var rows = visibleRows();
+        var checked = rows.filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; });
+        [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+            if (!sa) return;
+            sa.checked = rows.length > 0 && checked.length === rows.length;
+            sa.indeterminate = checked.length > 0 && checked.length < rows.length;
         });
     }
-    document.querySelectorAll('.row-select').forEach(function (c) { c.addEventListener('change', updateCount); });
+    function updateSelection() {
+        var count = getSelectedRows().length;
+        var el = document.getElementById('selectedCount');
+        if (el) el.textContent = count ? '已选 ' + count + ' 个' : '未选择';
+        syncSelectAll();
+    }
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+        input.addEventListener('input', function () { page = 1; render(); });
+        input.addEventListener('change', function () { page = 1; render(); });
+    });
+    document.querySelectorAll('.sort-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var col = btn.dataset.col;
+            if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; } else { sortCol = col; sortDir = 'asc'; }
+            page = 1;
+            document.querySelectorAll('.sort-btn').forEach(function (b) {
+                var arrow = '⇅';
+                if (b.dataset.col === sortCol) { arrow = sortDir === 'asc' ? '▲' : '▼'; b.classList.add('active'); } else { b.classList.remove('active'); }
+                b.textContent = arrow;
+            });
+            render();
+        });
+    });
+    function resetFilters() {
+        document.querySelectorAll('.filter-input').forEach(function (input) { input.value = ''; });
+        sortCol = 'index'; sortDir = 'asc'; page = 1;
+        document.querySelectorAll('.sort-btn').forEach(function (b) {
+            b.textContent = '⇅'; b.classList.remove('active');
+            if (b.dataset.col === 'index') { b.textContent = '▲'; b.classList.add('active'); }
+        });
+        render();
+    }
+    [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+        if (!sa) return;
+        sa.addEventListener('change', function () {
+            visibleRows().forEach(function (r) { var c = r.querySelector('.row-select'); if (c) c.checked = sa.checked; });
+            updateSelection();
+        });
+    });
+    document.querySelectorAll('.row-select').forEach(function (c) { c.addEventListener('change', updateSelection); });
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function () {
+            pageSize = parseInt(pageSizeSelect.value, 10) || 20;
+            localStorage.setItem('ops_pageSize_accounts', String(pageSize));
+            page = 1; render();
+        });
+    }
+    function submitBatchDelete() {
+        var rows = getSelectedRows();
+        if (!rows.length) { alert('请先勾选要删除的账号'); return; }
+        if (!confirm('确认删除选中的 ' + rows.length + ' 个账号？')) return;
+        var form = document.getElementById('batchDeleteForm');
+        while (form.firstChild) form.removeChild(form.firstChild);
+        rows.forEach(function (r) {
+            var c = r.querySelector('.row-select');
+            var f = document.createElement('input'); f.type = 'hidden'; f.name = 'indexes'; f.value = c.value; form.appendChild(f);
+        });
+        form.submit();
+    }
+    var batchForm = document.getElementById('batchForm');
     if (batchForm) {
         batchForm.addEventListener('submit', function (e) {
-            var vals = rowSelects().filter(function (c) { return c.checked; }).map(function (c) { return c.value; });
+            var vals = getSelectedRows().map(function (r) { var c = r.querySelector('.row-select'); return c.value; });
             if (!vals.length) {
                 e.preventDefault();
                 alert('请先勾选要自动认证的账号');
@@ -214,6 +475,7 @@
             if (!confirm('确认对选中的 ' + vals.length + ' 个账号执行自动认证？')) e.preventDefault();
         });
     }
-    updateCount();
+    document.querySelectorAll('.sort-btn').forEach(function (b) { if (b.dataset.col === 'index') { b.textContent = '▲'; b.classList.add('active'); } });
+    render();
 </script>
 {% endblock %}

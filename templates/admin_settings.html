@@ -274,10 +274,10 @@
             {name: 'bark_key', label: 'Key', type: 'text'}
         ],
         qqbot: [
-            {name: 'qqbot_base_url', label: 'API 地址（如 OneBot http://127.0.0.1:3000）', type: 'text'},
-            {name: 'qqbot_token', label: 'Token（可选）', type: 'text'},
-            {name: 'qqbot_target_type', label: '接收对象类型', type: 'select', options: [['private', '私聊'], ['group', '群聊']]},
-            {name: 'qqbot_target_id', label: '接收对象 ID（QQ号或群号）', type: 'text'}
+            {name: 'qqbot_app_id', label: 'BotAppID（开发者平台的应用ID）', type: 'text'},
+            {name: 'qqbot_app_secret', label: 'AppSecret（应用密钥）', type: 'password'},
+            {name: 'qqbot_target_type', label: '接收对象类型', type: 'select', options: [['private', 'C2C 私聊 openid'], ['group', '群聊 openid']]},
+            {name: 'qqbot_target_id', label: '接收对象 openid（用户/群 openid）', type: 'text'}
         ],
         ntfy: [
             {name: 'ntfy_server', label: '服务器地址（默认 https://ntfy.sh）', type: 'text'},

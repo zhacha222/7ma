@@ -2,7 +2,7 @@
 {% block content %}
 <div class="card">
     <h1>日志查看</h1>
-    <p>查看 <code>logs/</code> 目录下的日志文件，显示每个文件最后 500 行。</p>
+    <p>查看 <code>logs/</code> 目录下的日志文件，支持按列筛选、排序、分页与批量删除。</p>
 </div>
 
 {% if message %}
@@ -13,22 +13,62 @@
 {% endif %}
 
 <div class="card">
-    <h2>日志文件</h2>
+    <div class="toolbar" style="margin-bottom:14px;justify-content:space-between;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <strong style="font-size:14px;">日志文件</strong>
+            <span id="resultCount" class="badge muted">共 {{ files|length }} 个</span>
+        </div>
+        <div class="toolbar">
+            <button type="button" class="btn small secondary" onclick="resetFilters()">重置筛选</button>
+            {% if files %}
+            <label style="display:inline-flex;align-items:center;gap:6px;font-size:14px;font-weight:600;color:#55606e;">
+                <input type="checkbox" id="selectAll"> 全选
+            </label>
+            <span id="selectedCount" class="hint" style="margin:0;">未选择</span>
+            <button type="button" class="btn small danger" onclick="submitBatchDelete()">批量删除</button>
+            <form id="batchDeleteForm" action="/admin/logs/batch-delete" method="post" style="display:none;"></form>
+            {% endif %}
+        </div>
+    </div>
+
     {% if files %}
     <div style="overflow-x:auto;">
-    <table>
+    <table id="logsTable" class="logs-table">
         <thead>
             <tr>
-                <th>文件名</th>
-                <th style="width:110px;">类型</th>
-                <th>大小</th>
-                <th>修改时间</th>
+                <th style="width:38px;text-align:center;"><input type="checkbox" id="selectAllHead" title="全选当前页"></th>
+                <th data-col="name">
+                    <div class="th-row"><span>文件名</span><button type="button" class="sort-btn" data-col="name" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="name" placeholder="搜索文件名">
+                </th>
+                <th data-col="type" style="min-width:130px;">
+                    <div class="th-row"><span>类型</span><button type="button" class="sort-btn" data-col="type" title="点击排序">⇅</button></div>
+                    <select class="filter-input filter-select" data-col="type">
+                        <option value="">全部</option>
+                        <option value="下订单">下订单</option>
+                        <option value="还车">还车</option>
+                        <option value="积分任务">积分任务</option>
+                        <option value="手机登录">手机登录</option>
+                        <option value="服务错误">服务错误</option>
+                        <option value="服务输出">服务输出</option>
+                        <option value="其他">其他</option>
+                    </select>
+                </th>
+                <th data-col="size">
+                    <div class="th-row"><span>大小</span><button type="button" class="sort-btn" data-col="size" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="size" placeholder="字节数">
+                </th>
+                <th data-col="mtime">
+                    <div class="th-row"><span>修改时间</span><button type="button" class="sort-btn" data-col="mtime" title="点击排序">⇅</button></div>
+                    <input class="filter-input" type="text" data-col="mtime" placeholder="例如 2026-08-31">
+                </th>
                 <th style="width:190px;text-align:right;">操作</th>
             </tr>
         </thead>
-        <tbody>
+        <tbody id="logsBody">
             {% for file in files %}
-            <tr>
+            <tr data-name="{{ file.name }}" data-type="{{ file.type }}" data-size="{{ file.size }}" data-mtime="{{ file.mtime }}">
+                <td style="text-align:center;"><input type="checkbox" class="row-select"></td>
                 <td style="font-family:Consolas,Menlo,monospace;font-size:13px;word-break:break-all;">
                     <a href="javascript:void(0)" onclick="openLog('{{ file.name }}')" style="color:#007bff;">{{ file.name }}</a>
                 </td>
@@ -56,6 +96,18 @@
         </tbody>
     </table>
     </div>
+
+    <div class="page-bar">
+        <label class="page-size-label">每页
+            <select id="pageSizeSelect" class="page-size-select">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+            </select>
+            条
+        </label>
+        <div id="pagination" class="pagination"></div>
+    </div>
     {% else %}
     <div class="hint">暂无日志文件。</div>
     {% endif %}
@@ -75,6 +127,36 @@
 </div>
 
 <style>
+    .logs-table { min-width: 920px; }
+    .logs-table th { padding: 10px 11px; vertical-align: top; }
+    .th-row { display: flex; align-items: center; gap: 6px; justify-content: space-between; margin-bottom: 6px; white-space: nowrap; }
+    .sort-btn {
+        border: none;
+        background: #eef2f7;
+        color: #5b6575;
+        width: 26px;
+        height: 24px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 13px;
+        line-height: 1;
+    }
+    .sort-btn:hover { background: #dfe6ef; }
+    .sort-btn.active { background: var(--primary); color: #fff; }
+    .filter-input {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 12.5px;
+        background: #fbfcfe;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        margin: 0;
+        min-width: 110px;
+    }
+    .filter-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(79,110,247,0.12); background: #fff; }
+    .filter-select { appearance: auto; }
+    .logs-table tbody tr.hidden { display: none; }
     .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15,23,42,0.55); align-items: center; justify-content: center; z-index: 50; padding: 16px; }
     .modal-overlay.open { display: flex; }
     .modal { width: 860px; max-width: calc(100vw - 32px); background: #fff; border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,0.3); overflow: hidden; }
@@ -83,6 +165,34 @@
     .modal-close { border: none; background: #eef2f7; color: #4b5563; width: 30px; height: 30px; border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer; }
     .modal-close:hover { background: #e0e6ef; }
     .modal-body { padding: 18px 20px; }
+    .page-bar { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .page-size-label { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #55606e; font-weight: 600; }
+    .page-size-select {
+        padding: 6px 8px;
+        border: 1px solid #dbe2ec;
+        border-radius: 7px;
+        font-size: 13px;
+        background: #fff;
+        color: #1f2937;
+        cursor: pointer;
+    }
+    .pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .page-btn {
+        border: 1px solid #dbe2ec;
+        background: #fff;
+        color: #445066;
+        border-radius: 7px;
+        padding: 6px 11px;
+        font-size: 12.5px;
+        cursor: pointer;
+        line-height: 1.2;
+        min-width: 32px;
+        text-align: center;
+    }
+    .page-btn:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .pagination-info { color: var(--muted); font-size: 12.5px; margin-left: 8px; white-space: nowrap; }
 </style>
 
 <script>
@@ -112,5 +222,163 @@
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') closeLog();
     });
+
+    var sortCol = 'name';
+    var sortDir = 'desc';
+    var tbody = document.getElementById('logsBody');
+    var resultCount = document.getElementById('resultCount');
+    var paginationEl = document.getElementById('pagination');
+    var pageSizeSelect = document.getElementById('pageSizeSelect');
+    var pageSize = parseInt(localStorage.getItem('ops_pageSize_logs') || '20', 10);
+    if ([20, 50, 100].indexOf(pageSize) === -1) pageSize = 20;
+    if (pageSizeSelect) pageSizeSelect.value = String(pageSize);
+    var page = 1;
+
+    function getRows() { return Array.prototype.slice.call(tbody.querySelectorAll('tr')); }
+    function visibleRows() { return getRows().filter(function (r) { return !r.classList.contains('hidden'); }); }
+    function readFilters() {
+        var filters = {};
+        document.querySelectorAll('.filter-input').forEach(function (input) { filters[input.dataset.col] = (input.value || '').trim().toLowerCase(); });
+        return filters;
+    }
+    function rowMatches(row, filters) {
+        for (var col in filters) {
+            var value = filters[col];
+            if (!value) continue;
+            var cell = row.getAttribute('data-' + col) || '';
+            if (col === 'type') { if (cell !== filters[col]) return false; }
+            else if (col === 'size') {
+                if (String(cell) !== value) return false;
+            } else if (cell.toLowerCase().indexOf(value) === -1) { return false; }
+        }
+        return true;
+    }
+    function sortRows(rows) {
+        rows.sort(function (a, b) {
+            var result;
+            if (sortCol === 'size') {
+                result = (parseInt(a.getAttribute('data-size') || '0', 10)) - (parseInt(b.getAttribute('data-size') || '0', 10));
+            } else if (sortCol === 'mtime') {
+                var av = a.getAttribute('data-mtime') || ''; var bv = b.getAttribute('data-mtime') || '';
+                result = av.localeCompare(bv, 'zh-CN', { numeric: true });
+            } else {
+                var av2 = a.getAttribute('data-' + sortCol) || ''; var bv2 = b.getAttribute('data-' + sortCol) || '';
+                result = av2.localeCompare(bv2, 'zh-CN', { numeric: true });
+            }
+            return sortDir === 'asc' ? result : -result;
+        });
+        return rows;
+    }
+    function buildPagination(totalPages, total) {
+        if (!paginationEl) return;
+        paginationEl.innerHTML = '';
+        function pageBtn(label, pg, active, disabled) {
+            var b = document.createElement('button');
+            b.className = 'page-btn' + (active ? ' active' : '');
+            b.textContent = label;
+            if (disabled) { b.disabled = true; }
+            else if (pg) { b.onclick = function () { page = pg; render(); }; }
+            return b;
+        }
+        paginationEl.appendChild(pageBtn('‹ 上一页', page - 1, false, page <= 1));
+        var start = Math.max(1, page - 2);
+        var end = Math.min(totalPages, start + 4);
+        start = Math.max(1, end - 4);
+        for (var p = start; p <= end; p++) paginationEl.appendChild(pageBtn(String(p), p, p === page, false));
+        paginationEl.appendChild(pageBtn('下一页 ›', page + 1, false, page >= totalPages));
+        var info = document.createElement('span');
+        info.className = 'pagination-info';
+        info.textContent = '共 ' + total + ' 个 · ' + pageSize + ' 条/页';
+        paginationEl.appendChild(info);
+    }
+    function render() {
+        var filters = readFilters();
+        var allRows = getRows();
+        var visibleRows = allRows.filter(function (r) { return rowMatches(r, filters); });
+        sortRows(visibleRows);
+        var totalPages = Math.max(1, Math.ceil(visibleRows.length / pageSize));
+        if (page > totalPages) page = totalPages;
+        if (page < 1) page = 1;
+        var start = (page - 1) * pageSize;
+        var end = Math.min(start + pageSize, visibleRows.length);
+        visibleRows.forEach(function (row, i) {
+            row.classList.toggle('hidden', !(i >= start && i < end));
+            tbody.appendChild(row);
+        });
+        allRows.forEach(function (row) { if (visibleRows.indexOf(row) === -1) row.classList.add('hidden'); });
+        if (resultCount) resultCount.textContent = '共 ' + visibleRows.length + ' 个';
+        buildPagination(totalPages, visibleRows.length);
+        updateSelection();
+    }
+    function getSelectedRows() { return getRows().filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; }); }
+    function syncSelectAll() {
+        var rows = visibleRows();
+        var checked = rows.filter(function (r) { var c = r.querySelector('.row-select'); return c && c.checked; });
+        [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+            if (!sa) return;
+            sa.checked = rows.length > 0 && checked.length === rows.length;
+            sa.indeterminate = checked.length > 0 && checked.length < rows.length;
+        });
+    }
+    function updateSelection() {
+        var count = getSelectedRows().length;
+        var el = document.getElementById('selectedCount');
+        if (el) el.textContent = count ? '已选 ' + count + ' 个' : '未选择';
+        syncSelectAll();
+    }
+    document.querySelectorAll('.filter-input').forEach(function (input) {
+        input.addEventListener('input', function () { page = 1; render(); });
+        input.addEventListener('change', function () { page = 1; render(); });
+    });
+    document.querySelectorAll('.sort-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var col = btn.dataset.col;
+            if (sortCol === col) { sortDir = sortDir === 'asc' ? 'desc' : 'asc'; } else { sortCol = col; sortDir = 'desc'; }
+            page = 1;
+            document.querySelectorAll('.sort-btn').forEach(function (b) {
+                var arrow = '⇅';
+                if (b.dataset.col === sortCol) { arrow = sortDir === 'asc' ? '▲' : '▼'; b.classList.add('active'); } else { b.classList.remove('active'); }
+                b.textContent = arrow;
+            });
+            render();
+        });
+    });
+    function resetFilters() {
+        document.querySelectorAll('.filter-input').forEach(function (input) { input.value = ''; });
+        sortCol = 'name'; sortDir = 'desc'; page = 1;
+        document.querySelectorAll('.sort-btn').forEach(function (b) {
+            b.textContent = '⇅'; b.classList.remove('active');
+            if (b.dataset.col === 'name') { b.textContent = '▼'; b.classList.add('active'); }
+        });
+        render();
+    }
+    [document.getElementById('selectAll'), document.getElementById('selectAllHead')].forEach(function (sa) {
+        if (!sa) return;
+        sa.addEventListener('change', function () {
+            visibleRows().forEach(function (r) { var c = r.querySelector('.row-select'); if (c) c.checked = sa.checked; });
+            updateSelection();
+        });
+    });
+    document.querySelectorAll('.row-select').forEach(function (c) { c.addEventListener('change', updateSelection); });
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function () {
+            pageSize = parseInt(pageSizeSelect.value, 10) || 20;
+            localStorage.setItem('ops_pageSize_logs', String(pageSize));
+            page = 1; render();
+        });
+    }
+    function submitBatchDelete() {
+        var rows = getSelectedRows();
+        if (!rows.length) { alert('请先勾选要删除的日志文件'); return; }
+        if (!confirm('确认删除选中的 ' + rows.length + ' 个日志文件？')) return;
+        var form = document.getElementById('batchDeleteForm');
+        while (form.firstChild) form.removeChild(form.firstChild);
+        rows.forEach(function (r) {
+            var f = document.createElement('input'); f.type = 'hidden'; f.name = 'files'; f.value = r.getAttribute('data-name'); form.appendChild(f);
+        });
+        form.submit();
+    }
+    document.querySelectorAll('.sort-btn').forEach(function (b) { if (b.dataset.col === 'name') { b.textContent = '▼'; b.classList.add('active'); } });
+    render();
 </script>
 {% endblock %}

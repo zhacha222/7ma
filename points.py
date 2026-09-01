@@ -1,5 +1,6 @@
 import requests
 import net_util
+import account_profile_store
 import time
 from datetime import datetime, timedelta
 import points_store
@@ -250,6 +251,32 @@ def get_account_assets(tokens, force_refresh=False):
             info = fetch_user_info(raw_token)
             points_store.set_cached_info(raw_token, info)
 
+        # 保存/维护本地档案：账号有效时持久化姓名、手机号；失效时标记并记录
+        if info.get("ok"):
+            account_profile_store.save_profile(raw_token, info)
+            account_profile_store.clear_invalid(raw_token)
+        else:
+            became_invalid = account_profile_store.mark_invalid(raw_token, info.get("error") or "账号失效")
+            if became_invalid:
+                profile = account_profile_store.get_profile(raw_token) or {}
+                try:
+                    import notify
+                    notify.send_async('account', '账号失效通知', (
+                        f"账号已失效：{profile.get('phone') or profile.get('username') or mask_token(raw_token)}\n"
+                        f"原因：{info.get('error') or '账号失效'}\n"
+                        f"时间：{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    ))
+                except Exception:
+                    pass
+
+        credit = None if force_refresh else points_store.get_cached_credit(raw_token)
+        if credit is None:
+            if info.get("ok"):
+                credit = fetch_credit_scores(raw_token)
+            else:
+                credit = {"ok": False, "error": info.get("error") or "账户信息不可用", "credit_scores": None, "update_time": "", "credit_score_level": None}
+            points_store.set_cached_credit(raw_token, credit)
+
         cycling = None if force_refresh else points_store.get_cached_cycling(raw_token)
         if cycling is None:
             if info.get("ok"):
@@ -263,6 +290,7 @@ def get_account_assets(tokens, force_refresh=False):
             "token": raw_token,
             "masked": mask_token(raw_token),
             "info": info,
+            "credit": credit,
             "cycling": cycling,
             "cards": cycling.get("cards", []),
             "cards_count": cycling.get("total_cards", 0)
@@ -468,11 +496,22 @@ def get_accounts_overview(tokens, force_refresh=False):
         tasks, last_gain = overview_tasks(last_run)
         schedule = points_store.get_schedule(raw_token)
 
+        cycling = None if force_refresh else points_store.get_cached_cycling(raw_token)
+        if cycling is None:
+            if info.get("ok"):
+                cycling = fetch_cycling_cards(raw_token)
+            else:
+                cycling = {"ok": False, "error": info.get("error") or "账户信息不可用", "cards": [], "total_cards": 0}
+            points_store.set_cached_cycling(raw_token, cycling)
+
         accounts.append({
             "index": index,
             "masked": mask_token(raw_token),
             "info": info,
             "credit": credit,
+            "cycling": cycling,
+            "cards": cycling.get("cards", []),
+            "cards_count": cycling.get("total_cards", 0),
             "scheduled": schedule.get("enabled"),
             "schedule_time": schedule.get("time"),
             "next_run": next_run_display(schedule),

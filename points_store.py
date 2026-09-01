@@ -246,3 +246,16 @@ def get_cached_info(token):
 
 def key_of(token):
     return account_key(token)
+
+def delete_account(token):
+    """从积分存储中移除某个账号的所有数据，返回是否移除。"""
+    key = account_key(token)
+    with _lock:
+        config = _load()
+        accounts = config.get("accounts", {})
+        if key not in accounts:
+            return False
+        accounts.pop(key, None)
+        config["accounts"] = accounts
+        _save(config)
+        return True

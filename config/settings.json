@@ -1,0 +1,11 @@
+{
+  "log_retention_days": 30,
+  "api_key": "7ma_af40d3fee76401740a0b4ce94f8aef52ba199470",
+  "notification": {
+    "notify_login": true,
+    "notify_order": true,
+    "notify_points": true,
+    "notify_account": true,
+    "bindings": []
+  }
+}
