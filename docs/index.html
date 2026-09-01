@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>7MA 出行自助服务平台 · v2.0.0</title>
+<meta name="description" content="7MA 出行自助服务平台：多账号免费用车自动化、积分获取与兑换、多维管理后台、多渠道通知与远程 API。">
+<meta property="og:title" content="7MA 出行自助服务平台">
+<meta property="og:description" content="多账号免费用车、积分自动获取兑换、后台管理、远程 API">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#0b1020; --bg2:#111a33; --card:#16203d; --card2:#1b2748;
+    --line:rgba(120,140,200,.16); --txt:#e8ecf8; --muted:#9aa7c4;
+    --acc:#5b8cff; --acc2:#7c5bff; --gr1:#5b8cff; --gr2:#7c5bff; --gr3:#2fd0a0;
+    --ok:#2fd0a0; --warn:#ffb454; --bad:#ff6b6b;
+    --r:18px;
+    --mono:"JetBrains Mono",Consolas,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:radial-gradient(1200px 600px at 80% -10%,#1b2440 0,transparent 60%),linear-gradient(160deg,#0b0f18,#0d1526 60%,#0b1020);color:var(--txt);line-height:1.6;min-height:100vh;overflow-x:hidden}
+  ::selection{background:rgba(91,140,255,.35)}
+  a{color:var(--acc);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code{font-family:var(--mono);font-size:.9em;background:rgba(91,140,255,.12);border:1px solid var(--line);padding:1px 6px;border-radius:6px}
+  pre{background:#0a0f1c;border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font-family:var(--mono);font-size:.85rem;line-height:1.55}
+  pre code{background:none;border:0;padding:0}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px}
+  /* Hero */
+  header.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(11,16,32,.72);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;max-width:1080px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:.3px}
+  .logo{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,var(--gr1),var(--gr2));display:grid;place-items:center;font-size:15px;color:#fff;box-shadow:0 4px 14px rgba(91,140,255,.35)}
+  .nav-links{display:flex;gap:22px;font-size:.92rem}
+  .nav-links a{color:var(--txt);opacity:.85}
+  .nav-links a:hover{opacity:1}
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:11px 20px;border-radius:12px;font-weight:600;font-size:.95rem;border:1px solid var(--line);transition:.18s;cursor:pointer}
+  .btn-primary{background:linear-gradient(135deg,var(--gr1),var(--gr2));color:#fff;border:0;box-shadow:0 10px 26px rgba(91,90,255,.35)}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 30px rgba(91,90,255,.45)}
+  .btn-ghost{background:rgba(255,255,255,.03);color:var(--txt)}
+  .btn-ghost:hover{background:rgba(255,255,255,.08)}
+  .btn-sm{padding:7px 13px;font-size:.84rem;border-radius:10px}
+  /* Hero */
+  .hero{padding:88px 0 60px;position:relative}
+  .hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+  .badge{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;background:rgba(91,140,255,.12);border:1px solid rgba(91,140,255,.3);font-size:.82rem;color:#a9c3ff;margin-bottom:18px}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--gr3);box-shadow:0 0 10px var(--gr3);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .hero h1{font-size:clamp(1.9rem,4.5vw,3rem);line-height:1.15;letter-spacing:-.5px;margin-bottom:16px}
+  .grad{background:linear-gradient(120deg,var(--gr1),var(--gr2) 60%,var(--gr3));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p.sub{color:var(--muted,#a9b5d6);max-width:540px;font-size:1.04rem;margin-bottom:26px}
+  .cta{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:20px}
+  .meta{display:flex;gap:18px;flex-wrap:wrap;font-size:.85rem;color:var(--muted)}
+  .meta span{display:inline-flex;align-items:center;gap:6px}
+  .heroart{position:relative}
+  .card-stack{background:linear-gradient(160deg,#141e3a,#0f1730);border:1px solid var(--line);border-radius:20px;padding:20px;box-shadow:0 30px 60px rgba(0,0,0,.4)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0 14px}
+  .chip{padding:4px 10px;border-radius:8px;background:rgba(47,208,160,.12);border:1px solid rgba(47,208,160,.28);font-size:.76rem;color:#9fe9ce}
+  .chip.warn{background:rgba(255,180,84,.1);border-color:rgba(255,180,84,.3);color:#ffd4a1}
+  .card-link{display:block;background:#0c1426;border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-top:10px;font-family:var(--mono);font-size:.82rem;color:var(--muted);transition:.18s}
+  .card-link:hover{border-color:var(--acc);color:var(--txt)}
+  /* sections */
+  section{padding:52px 0}
+  .sec-tag{display:inline-block;font-size:.78rem;letter-spacing:2px;color:var(--acc);text-transform:uppercase;margin-bottom:10px;font-weight:600}
+  h2{font-size:1.7rem;letter-spacing:-.4px;margin-bottom:10px}
+  .sec-desc{color:var(--muted);max-width:640px;margin-bottom:26px}
+  /* features */
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px;transition:.2s}
+  .card:hover{transform:translateY(-4px);border-color:rgba(91,140,255,.4);background:var(--card2)}
+  .ic{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,rgba(91,140,255,.2),rgba(124,91,255,.2));display:grid;place-items:center;font-size:20px;margin-bottom:14px}
+  .card h3{font-size:1.05rem;margin-bottom:8px}
+  .card p{color:var(--muted);font-size:.9rem}
+  /* deploy / api two-col */
+  .two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:22px}
+  .panel h3{display:flex;align-items:center;gap:10px;font-size:1.02rem;margin-bottom:12px}
+  .num{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,var(--gr1),var(--gr2));display:grid;place-items:center;font-size:.82rem;color:#fff;flex:none}
+  .panel ul{list-style:none;margin:6px 0 10px}
+  .panel li{padding:3px 0;color:var(--muted);font-size:.92rem}
+  .panel li b{color:var(--txt);font-weight:600}
+  .panel .row{margin:8px 0}
+  .tagbox{font-size:.8rem}
+  .muted{color:var(--muted)}
+  /* api */
+  .api-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:820px){.api-grid{grid-template-columns:1fr}}
+  .api{margin-top:16px}
+  .path{font-family:var(--mono);font-size:.85rem}
+  .method{font-family:var(--mono);font-weight:700;padding:2px 8px;border-radius:6px;font-size:.78rem}
+  .get{background:rgba(47,208,160,.15);color:var(--gr3)}
+  .post{background:rgba(91,140,255,.16);color:var(--acc)}
+  .kbd{color:var(--warn)}
+  .note{border-left:3px solid var(--acc);background:rgba(91,140,255,.08);padding:12px 16px;border-radius:0 10px 10px 0;font-size:.92rem;color:var(--muted);margin-top:14px}
+  /* download table */
+  table{width:100%;border-collapse:collapse;font-size:.92rem}
+  th,td{text-align:left;padding:13px 14px;border-bottom:1px solid var(--line)}
+  th{color:var(--muted);font-weight:600;font-size:.82rem;letter-spacing:.5px}
+  td .size{color:var(--muted);font-size:.8rem;margin-left:6px}
+  /* footer */
+  footer{border-top:1px solid var(--line);padding:34px 0;color:var(--muted);font-size:.85rem}
+  footer .wrap{display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;align-items:center}
+  .warnbox{display:flex;gap:12px;border:1px solid rgba(255,180,84,.3);background:rgba(255,180,84,.08);border-radius:12px;padding:16px 18px;margin-bottom:8px;font-size:.92rem;color:#ffe1b8}
+  @media(max-width:760px){
+    .nav-links{display:none}
+    .hero .wrap{grid-template-columns:1fr}
+    section{padding:38px 0}
+  }
+</style>
+</head>
+<body>
+<header class="nav"><div class="nav-in">
+  <div class="brand"><span class="logo">7</span> 7MA 出行平台</div>
+  <nav class="nav-links">
+    <a href="#features">特性</a><a href="#deploy">部署</a><a href="#api">API</a><a href="#app">手机端</a><a href="#download">下载</a><a href="https://github.com/zhacha222/7ma" target="_blank" rel="noopener">GitHub</a>
+  </nav>
+</div></header>
+
+<div class="hero"><div class="wrap">
+  <div>
+    <span class="badge"><span class="dot"></span> v2.0.0 · 自动免费用车 · 开源</span>
+    <h1>7MA 出行<br><span class="grad">自助服务平台</span></h1>
+    <p class="sub">多账号并发用车、下单即还车一分钟免单、积分自动获取与兑换骑行卡。配套完整管理后台、多渠道通知与远程 API，网页端 / 桌面版 / 安卓 / Docker 全平台可用。</p>
+    <div class="cta">
+      <button class="btn btn-primary" onclick="go('https://github.com/zhacha222/7ma/releases/tag/v2.0.0')">⬇ 下载 v2.0.0</button>
+      <button class="btn btn-ghost" onclick="go('#deploy')">🚀 快速部署</button>
+    </div>
+    <div class="meta">
+      <span>🔒 默认密码 <code>password</code></span>
+      <span>📄 MIT 协议</span>
+      <span>🐍 Python / Flask</span>
+    </div>
+  </div>
+  <div class="heroart">
+    <div class="ph-stack">
+      <div class="chips"><span class="chip">✓ 自动免费用车</span><span class="chip">✓ 还车监控</span><span class="chip warn">✓ 一分钟免费</span></div>
+      <div>多账号并发，无账号时自动等待还车后继续下单；下单开锁后持续监控 60 秒、每 3 秒检测并自动还车，防止超时扣费。</div>
+      <div class="card-link">💡 钱包至少保留 1 分钱即可正常下单</div>
+    </div>
+  </div>
+</div></div>
+
+<section id="features"><div class="wrap">
+  <span class="sec-tag">Features</span>
+  <h2>核心功能</h2>
+  <p class="sec-desc">从下单到还车全程自动化，后台集中管理多账号与积分。</p>
+  <div class="grid">
+    <div class="card"><div class="ic">🚴</div><h3>多账号并发用车</h3><p>批量导入 Authorization，自动搜索可用账号；都在骑行中时最多等待 2 分钟到有账号还车后自动下单。</p></div>
+    <div class="card"><div class="ic">⏱</div><h3>自动还车监控</h3><p>下单开锁后后台持续监控 60 秒、每 3 秒检测进行中订单，立即还车并复核，防止「假性还车」扣费。</p></div>
+    <div class="card"><div class="ic">⭐</div><h3>积分获取 / 兑换</h3><p>查看各账号姓名、学校、手机号、信用积分与当前积分；支持定时运行、批量运行、自动兑换骑行卡。</p></div>
+    <div class="card"><div class="ic">🔐</div><h3>完整管理后台</h3><p>账号管理、订单信息、日志查看、积分获取、设置。手机号登录获取授权，批量认证免押金。</p></div>
+    <div class="card"><div class="ic">🔔</div><h3>多渠道通知</h3><p>Telegram、钉钉、企业微信、飞书、QQ 机器人、ntfy、Gotify、Webhook 等，事件独立开关与测试消息。</p></div>
+    <div class="card"><div class="ic">🔑</div><h3>远程 API</h3><p>X-API-Key 鉴权的下单与状态接口，配套手机端 Web App 可跨域调用，随处扫码用车。</p></div>
+  </div>
+</div></section>
+
+<section id="deploy"><div class="wrap">
+  <span class="sec-tag">Deploy</span>
+  <h2>部署方式</h2>
+  <p class="sec-desc">五种方式任选，Windows 直接下载，Linux 源码运行，或 Docker 一键部署。</p>
+  <div class="two">
+    <div class="panel">
+      <div class="row"><span class="num">1</span> Windows 部署（推荐装 exe）</div>
+      <p class="muted">无需 Python，到 Releases 下载 <code>7MA_v2.0.0.exe</code> 双击运行，自动打开浏览器。</p>
+      <div class="card-link">▶ 双击 exe → http://localhost:4321</div>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">2</span> Linux 从源码运行</div>
+      <pre><code>pip install -r requirements.txt
+python app.py   # 端口 4321</code></pre>
+      <div class="card-link">▶ http://服务器IP:4321</div>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">3</span> Docker 一键部署</div>
+      <pre><code>docker run -d --name 7ma -p 4321:4321 \
+  -v 7ma_config:/app/config -v 7ma_logs:/app/logs \
+  --restart unless-stopped \
+  zhacha222/7ma:v2.0.0</code></pre>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">4</span> Docker Compose</div>
+      <pre><code>docker compose up -d</code></pre>
+      <div class="card-link">镜像 <code>zhacha222/7ma:v2.0.0</code> · 多平台 amd64/arm64/armv7</div>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">5</span> 自行从源码构建镜像</div>
+      <pre><code>docker build -t 7ma:v2.0.0 .
+./docker/build-multiarch.sh 你的账号/7ma:v2.0.0</code></pre>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">🔑</span> 重置密码（各平台）</div>
+      <p class="muted">默认密码 <code>password</code>。忘记密码在服务端运行：</p>
+      <pre><code>python reset_password.py 新密码
+# Docker:
+docker exec -it 7ma python reset_password.py 新密码</code></pre>
+    </div>
+  </div>
+  <div class="note">访问地址：浏览器打开 <code>http://主机:4321</code>，管理后台 <code>http://主机:4321/admin</code>。默认密码 <code>password</code>，登录后建议立即修改。</div>
+</div></section>
+
+<section id="api"><div class="wrap">
+  <span class="sec-tag">API</span>
+  <h2>远程 API 调用</h2>
+  <p class="sec-desc">在「设置 → API 密钥」查看 / 生成 <code>X-API-Key</code>，调用时放入请求头。已开启跨域，手机端 / 任意页面均可调用。</p>
+  <div class="api-grid">
+    <div class="card api">
+      <span class="method get">GET</span> <code class="path">/api/v1/status</code>
+      <h3>查询服务状态</h3>
+      <pre><code>curl http://主机:4321/api/v1/status \
+  -H "X-API-Key: 你的密钥"</code></pre>
+      <div class="card-link">响应: <code>{ "ok": true, "authorizations": 1, "time": "2026-09-01 12:00:00" }</code></div>
+    </div>
+    <div class="api">
+      <span class="method post">POST</span> <code class="path">/api/v1/order</code>
+      <h3>远程下单</h3>
+      <pre><code>curl -X POST http://your/api/v1/order \
+  -H "X-API-Key: 你的密钥" \
+  -H "Content-Type: application/json" \
+  -d '{"bike_number":"123456"}'</code></pre>
+      <div class="card-link">响应: <code>{ "ok": true, "message":"下单", "unlock_result":"开锁成功", "is_success": true }</code></div>
+    </div>
+  </div>
+  <div class="note">⚠️ 下单接口参数：
+  <code>bike_number</code>（车辆编号）。失败时返回 <code>ok:false</code> 及 <code>message</code> 说明原因。</div>
+</div></section>
+
+<section id="app"><div class="wrap">
+  <span class="sec-tag">Mobile</span>
+  <h2>手机端调用方法</h2>
+  <p class="sec-desc">配套手机 Web App 可直接扫码 / 手动用车，也支持打包安卓 APK。</p>
+  <div class="two">
+    <div class="panel">
+      <div class="row"><span class="num">01</span> 网页端 App</div>
+      <ul>
+        <li>浏览器打开 <code>http://主机:4321/app</code>（或部署到静态空间）</li>
+        <li>首次填写「服务地址」与「API 密钥」→ 点「测试连接」</li>
+        <li>扫码用车：扫描二维码自动提取编号确认下单</li>
+        <li>也支持「输入车辆编号」或粘贴二维码链接提取</li>
+        <li>自动记录最近 20 条订单结果</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="row"><span class="num">02</span> 安卓 APK</div>
+      <ul>
+        <li>在 Releases 下载 <code>7MA.apk</code> 安装</li>
+        <li>APK 需搭配 HTTPS 平台地址使用摄像头扫码</li>
+        <li>HTTP 下可用「相册 / 拍照 / 手动输入」兜底</li>
+      </ul>
+      <div class="card-link">手机访问主接口：<code>POST /api/v1/order</code> 携带 X-API-Key</div>
+    </div>
+  </div>
+  <div class="note">浏览器 / WebView 调取摄像头需 HTTPS（或 localhost）。手机端下单逻辑与网页端完全一致，账号搜索、开锁、还车监控均由平台完成。</div>
+</div></section>
+
+<section id="download" style="padding-bottom:10px"><div class="wrap">
+  <span class="sec-tag">Download</span>
+  <h2>下载 · v2.0.0</h2>
+  <p class="sec-desc">以下资源来自 GitHub Releases，点击即可下载。</p>
+  <table>
+    <thead><tr><th>文件</th><th>说明</th><th>大小</th><th>下载</th></tr></thead>
+    <tbody>
+      <tr><td>7MA_v2.0.0.exe</td><td>Windows 桌面版（双击即用）</td><td class="size">10 MB</td><td><a class="btn btn-sm btn-ghost" href="https://github.com/zhacha222/7ma/releases/download/v2.0.0/7MA_v2.0.0.exe" target="_blank" rel="noopener">下载</a></td></tr>
+      <tr><td>7MA.apk</td><td>安卓 APK（扫码用车）</td><td class="size">15 MB</td><td><a class="btn btn-sm btn-ghost" href="https://github.com/zhacha222/7ma/releases/download/v2.0.0/7MA.apk" target="_blank" rel="noopener">下载</a></td></tr>
+      <tr><td>v2.0.0-source.zip</td><td>完整源码包</td><td class="size">177 KB</td><td><a class="btn btn-sm btn-ghost" href="https://github.com/zhacha222/7ma/releases/download/v2.0.0/v2.0.0-source.zip" target="_blank" rel="noopener">下载</a></td></tr>
+      <tr><td>Docker 镜像</td><td>多平台镜像（Docker Hub）</td><td class="size">137 MB</td><td><a class="btn btn-sm btn-ghost" href="https://hub.docker.com/r/zhacha222/7ma/tags" target="_blank" rel="noopener">查看</a></td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<section><div class="wrap">
+  <div class="warnbox">⚠️ 本工具仅供技术学习与研究，请自觉遵守平台规则与当地法律，风险自负。使用前请在钱包预留相应费用，避免产生违约与扣费。</div>
+</div></section>
+
+<footer><div class="wrap">
+  <div>7MA 出行自助服务平台 · v2.0.0</div>
+  <div><a href="https://github.com/zhacha222/7ma" target="_blank" rel="noopener">源码 · GitHub</a> &nbsp;·&nbsp; <a href="#top">返回顶部</a></div>
+</div></footer>
+
+<script>
+function go(url){window.open(url,"_blank","noopener")}
+</script>
+</body>
+</html>
